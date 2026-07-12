@@ -10,6 +10,7 @@ from app.services import scoring
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
+
 @router.get("/overview")
 def overview(db: Session = Depends(get_db)):
     overdue = ensure_overdue_notifications(db)
