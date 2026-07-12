@@ -21,3 +21,6 @@ frontend/.vite/
 .DS_Store
 .idea/
 .vscode/
+
+# Local dev databases
+*.db
