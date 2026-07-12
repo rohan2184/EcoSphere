@@ -237,6 +237,24 @@ def approve_challenge_participation(
         participation.xp_awarded = 0
         db.commit()
         db.refresh(participation)
+
+        # Notify the user about the rejection
+        challenge = (
+            db.query(Challenge)
+            .filter(Challenge.id == participation.challenge_id)
+            .first()
+        )
+        challenge_title = challenge.title if challenge else "Unknown challenge"
+        from app.services.notifications import create_notification
+        create_notification(
+            db,
+            user_id=participation.user_id,
+            type="challenge_approval_decision",
+            title="Challenge participation rejected",
+            message=f"Your submission for \"{challenge_title}\" has been rejected.",
+            settings=settings,
+        )
+
         return participation
 
     # decision == "approved"
@@ -269,6 +287,20 @@ def approve_challenge_participation(
     # Import here to avoid circular import at module level
     from app.services.badges import check_badge_unlocks
     check_badge_unlocks(db, participation.user_id, settings)
+
+    # Notify the user about the approval
+    from app.services.notifications import create_notification
+    create_notification(
+        db,
+        user_id=participation.user_id,
+        type="challenge_approval_decision",
+        title="Challenge participation approved",
+        message=(
+            f"Your submission for \"{challenge.title}\" has been approved! "
+            f"You earned {participation.xp_awarded} XP."
+        ),
+        settings=settings,
+    )
 
     return participation
 

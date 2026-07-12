@@ -117,6 +117,20 @@ def approve_participation(
         participation.points_earned = 0
         db.commit()
         db.refresh(participation)
+
+        # Notify the user about the rejection
+        activity = get_csr_activity(db, participation.csr_activity_id)
+        activity_title = activity.title if activity else "Unknown activity"
+        from app.services.notifications import create_notification
+        create_notification(
+            db,
+            user_id=participation.user_id,
+            type="csr_approval_decision",
+            title=f"CSR activity rejected",
+            message=f"Your participation in \"{activity_title}\" has been rejected.",
+            settings=settings,
+        )
+
         return participation
 
     # decision == "approved"
@@ -144,5 +158,19 @@ def approve_participation(
     # Sync points balance to the User row
     from app.services.gamification import sync_user_points
     sync_user_points(db, participation.user_id)
+
+    # Notify the user about the approval
+    from app.services.notifications import create_notification
+    create_notification(
+        db,
+        user_id=participation.user_id,
+        type="csr_approval_decision",
+        title=f"CSR activity approved",
+        message=(
+            f"Your participation in \"{activity.title}\" has been approved! "
+            f"You earned {activity.points_value} points."
+        ),
+        settings=settings,
+    )
 
     return participation
