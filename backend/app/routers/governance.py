@@ -128,6 +128,10 @@ def list_audits(department_id: int | None = None, result: str | None = None, sta
 
 @router.post("/audits", response_model=AuditOut, status_code=201)
 def create_audit(body: AuditCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
+    from app.models.core import Department
+    get_or_404(db, Department, body.department_id)
+    if body.auditor_id:
+        get_or_404(db, User, body.auditor_id)
     audit = Audit(**body.model_dump())
     db.add(audit)
     db.commit()
