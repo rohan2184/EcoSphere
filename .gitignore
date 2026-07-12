@@ -1,0 +1,23 @@
+# Documentation (local only)
+documentation/
+
+# Environment
+.env
+*.env
+!*.env.example
+
+# Python / backend
+backend/.venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
