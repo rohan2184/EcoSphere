@@ -63,17 +63,17 @@ export default function BadgesAndRewards() {
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<number | null>(null);
 
-  // Badge dialog
+  /* ── Badge admin state ───────────────────────────────────── */
   const [badgeDialogOpen, setBadgeDialogOpen] = useState(false);
   const [editingBadge, setEditingBadge] = useState<Badge | null>(null);
-  const [badgeForm, setBadgeForm] = useState<BadgeForm>(EMPTY_BADGE_FORM);
-  const [savingBadge, setSavingBadge] = useState(false);
+  const [badgeForm, setBadgeForm] = useState({ name: "", description: "", icon: "" });
+  const [badgeSaving, setBadgeSaving] = useState(false);
 
-  // Reward dialog
+  /* ── Reward admin state ──────────────────────────────────── */
   const [rewardDialogOpen, setRewardDialogOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
-  const [rewardForm, setRewardForm] = useState<RewardForm>(EMPTY_REWARD_FORM);
-  const [savingReward, setSavingReward] = useState(false);
+  const [rewardForm, setRewardForm] = useState({ name: "", description: "", points_required: "100", stock: "10" });
+  const [rewardSaving, setRewardSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -120,61 +120,51 @@ export default function BadgesAndRewards() {
     }
   }
 
-  /* ── Badge CRUD (admin) ────────────────────────────────────── */
+  /* ── Badge CRUD handlers ─────────────────────────────────── */
 
-  function openBadgeCreate() {
+  function openCreateBadge() {
     setEditingBadge(null);
-    setBadgeForm(EMPTY_BADGE_FORM);
+    setBadgeForm({ name: "", description: "", icon: "" });
     setBadgeDialogOpen(true);
   }
 
-  function openBadgeEdit(badge: Badge) {
+  function openEditBadge(badge: Badge) {
     setEditingBadge(badge);
     setBadgeForm({
       name: badge.name,
       description: badge.description ?? "",
-      icon: badge.icon ?? "🎖",
-      unlock_rule: badge.unlock_rule ? JSON.stringify(badge.unlock_rule) : "{}",
+      icon: badge.icon ?? "",
     });
     setBadgeDialogOpen(true);
   }
 
-  async function submitBadge(e: React.FormEvent) {
+  async function handleBadgeSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSavingBadge(true);
+    setBadgeSaving(true);
     try {
-      let parsedRule: any = {};
-      try {
-        parsedRule = JSON.parse(badgeForm.unlock_rule);
-      } catch {
-        showToast("Unlock rule must be valid JSON.", "red");
-        setSavingBadge(false);
-        return;
-      }
       const payload = {
         name: badgeForm.name,
         description: badgeForm.description || null,
         icon: badgeForm.icon || null,
-        unlock_rule: parsedRule,
       };
       if (editingBadge) {
         await api.put(`/gamification/badges/${editingBadge.id}`, payload);
         showToast("Badge updated.", "green");
       } else {
         await api.post("/gamification/badges", payload);
-        showToast("Badge created.", "green");
+        showToast("Badge created!", "green");
       }
       setBadgeDialogOpen(false);
       fetchData();
     } catch (err) {
       showToast(errorMessage(err), "red");
     } finally {
-      setSavingBadge(false);
+      setBadgeSaving(false);
     }
   }
 
-  async function deleteBadge(badge: Badge) {
-    if (!window.confirm(`Delete badge "${badge.name}"? This cannot be undone.`)) return;
+  async function handleDeleteBadge(badge: Badge) {
+    if (!confirm(`Delete badge "${badge.name}"? This cannot be undone.`)) return;
     try {
       await api.delete(`/gamification/badges/${badge.id}`);
       showToast("Badge deleted.", "green");
@@ -184,9 +174,9 @@ export default function BadgesAndRewards() {
     }
   }
 
-  /* ── Reward CRUD (admin) ───────────────────────────────────── */
+  /* ── Reward CRUD handlers ────────────────────────────────── */
 
-  function openRewardEdit(reward: Reward) {
+  function openEditReward(reward: Reward) {
     setEditingReward(reward);
     setRewardForm({
       name: reward.name,
@@ -197,9 +187,9 @@ export default function BadgesAndRewards() {
     setRewardDialogOpen(true);
   }
 
-  async function submitReward(e: React.FormEvent) {
+  async function handleRewardSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSavingReward(true);
+    setRewardSaving(true);
     try {
       const payload = {
         name: rewardForm.name,
@@ -207,21 +197,19 @@ export default function BadgesAndRewards() {
         points_required: Number(rewardForm.points_required),
         stock: Number(rewardForm.stock),
       };
-      if (editingReward) {
-        await api.put(`/gamification/rewards/${editingReward.id}`, payload);
-        showToast("Reward updated.", "green");
-      }
+      await api.put(`/gamification/rewards/${editingReward!.id}`, payload);
+      showToast("Reward updated.", "green");
       setRewardDialogOpen(false);
       fetchData();
     } catch (err) {
       showToast(errorMessage(err), "red");
     } finally {
-      setSavingReward(false);
+      setRewardSaving(false);
     }
   }
 
-  async function deleteReward(reward: Reward) {
-    if (!window.confirm(`Delete reward "${reward.name}"? This cannot be undone.`)) return;
+  async function handleDeleteReward(reward: Reward) {
+    if (!confirm(`Delete reward "${reward.name}"? This cannot be undone.`)) return;
     try {
       await api.delete(`/gamification/rewards/${reward.id}`);
       showToast("Reward deleted.", "green");
@@ -230,8 +218,6 @@ export default function BadgesAndRewards() {
       showToast(errorMessage(err), "red");
     }
   }
-
-  /* ── Derived state ────────────────────────────────────────── */
 
   const myBadgeIds = new Set(myBadges.map((b) => b.badge_id));
 
@@ -244,9 +230,7 @@ export default function BadgesAndRewards() {
             <h2 className="text-2xl font-bold text-stone-900">Badges</h2>
             <p className="text-sm text-stone-500 mt-1">Earn badges by participating in CSR activities and challenges.</p>
           </div>
-          {isAdmin && (
-            <Button onClick={openBadgeCreate}>+ Create Badge</Button>
-          )}
+          {isAdmin && <Button onClick={openCreateBadge}>+ Create Badge</Button>}
         </div>
 
         {loading ? (
@@ -284,13 +268,9 @@ export default function BadgesAndRewards() {
                     </div>
                   )}
                   {isAdmin && (
-                    <div className="mt-3 flex gap-2">
-                      <Button variant="outline" className="text-xs px-2 py-1" onClick={() => openBadgeEdit(badge)}>
-                        Edit
-                      </Button>
-                      <Button variant="danger" className="text-xs px-2 py-1" onClick={() => deleteBadge(badge)}>
-                        Delete
-                      </Button>
+                    <div className="flex gap-1 mt-3">
+                      <Button variant="outline" className="text-xs px-2 py-1" onClick={() => openEditBadge(badge)}>Edit</Button>
+                      <Button variant="danger" className="text-xs px-2 py-1" onClick={() => handleDeleteBadge(badge)}>Delete</Button>
                     </div>
                   )}
                 </div>
@@ -344,7 +324,7 @@ export default function BadgesAndRewards() {
                     </span>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Button
                       variant="primary"
                       onClick={() => handleRedeem(reward)}
@@ -354,12 +334,8 @@ export default function BadgesAndRewards() {
                     </Button>
                     {isAdmin && (
                       <>
-                        <Button variant="outline" className="text-xs px-2 py-1" onClick={() => openRewardEdit(reward)}>
-                          Edit
-                        </Button>
-                        <Button variant="danger" className="text-xs px-2 py-1" onClick={() => deleteReward(reward)}>
-                          Delete
-                        </Button>
+                        <Button variant="outline" className="text-xs px-2 py-1" onClick={() => openEditReward(reward)}>Edit</Button>
+                        <Button variant="danger" className="text-xs px-2 py-1" onClick={() => handleDeleteReward(reward)}>Delete</Button>
                       </>
                     )}
                   </div>
@@ -370,18 +346,18 @@ export default function BadgesAndRewards() {
         )}
       </section>
 
-      {/* ── Badge Create/Edit Dialog ───────────────────────────── */}
+      {/* ── Badge Create/Edit Dialog ──────────────────────────── */}
       <Dialog
         open={badgeDialogOpen}
         onClose={() => setBadgeDialogOpen(false)}
         title={editingBadge ? "Edit Badge" : "Create Badge"}
       >
-        <form onSubmit={submitBadge} className="space-y-3">
+        <form onSubmit={handleBadgeSubmit} className="space-y-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-stone-600">Name</label>
             <Input
               required
-              placeholder="e.g. Eco Champion"
+              placeholder="e.g. Eco Pioneer"
               value={badgeForm.name}
               onChange={(e) => setBadgeForm({ ...badgeForm, name: e.target.value })}
               className="w-full"
@@ -396,47 +372,36 @@ export default function BadgesAndRewards() {
               className="w-full"
             />
           </div>
-          <div className="flex gap-3">
-            <div className="w-24 space-y-1">
-              <label className="text-xs font-medium text-stone-600">Icon</label>
-              <Input
-                placeholder="🎖"
-                value={badgeForm.icon}
-                onChange={(e) => setBadgeForm({ ...badgeForm, icon: e.target.value })}
-                className="w-full text-center text-lg"
-              />
-            </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-xs font-medium text-stone-600">Unlock Rule (JSON)</label>
-              <Input
-                placeholder='{"min_xp": 100}'
-                value={badgeForm.unlock_rule}
-                onChange={(e) => setBadgeForm({ ...badgeForm, unlock_rule: e.target.value })}
-                className="w-full font-mono text-xs"
-              />
-            </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-stone-600">Icon (emoji)</label>
+            <Input
+              placeholder="e.g. 🌱"
+              value={badgeForm.icon}
+              onChange={(e) => setBadgeForm({ ...badgeForm, icon: e.target.value })}
+              className="w-full"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setBadgeDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={savingBadge}>
-              {savingBadge ? "Saving…" : editingBadge ? "Save changes" : "Create badge"}
+            <Button type="submit" disabled={badgeSaving}>
+              {badgeSaving ? "Saving…" : editingBadge ? "Save Changes" : "Create Badge"}
             </Button>
           </div>
         </form>
       </Dialog>
 
-      {/* ── Reward Edit Dialog ─────────────────────────────────── */}
+      {/* ── Reward Edit Dialog ────────────────────────────────── */}
       <Dialog
         open={rewardDialogOpen}
         onClose={() => setRewardDialogOpen(false)}
         title="Edit Reward"
       >
-        <form onSubmit={submitReward} className="space-y-3">
+        <form onSubmit={handleRewardSubmit} className="space-y-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-stone-600">Name</label>
             <Input
               required
-              placeholder="e.g. Coffee Voucher"
+              placeholder="Reward name"
               value={rewardForm.name}
               onChange={(e) => setRewardForm({ ...rewardForm, name: e.target.value })}
               className="w-full"
@@ -457,7 +422,7 @@ export default function BadgesAndRewards() {
               <Input
                 required
                 type="number"
-                min="0"
+                min="1"
                 value={rewardForm.points_required}
                 onChange={(e) => setRewardForm({ ...rewardForm, points_required: e.target.value })}
                 className="w-full"
@@ -477,8 +442,8 @@ export default function BadgesAndRewards() {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setRewardDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={savingReward}>
-              {savingReward ? "Saving…" : "Save changes"}
+            <Button type="submit" disabled={rewardSaving}>
+              {rewardSaving ? "Saving…" : "Save Changes"}
             </Button>
           </div>
         </form>
