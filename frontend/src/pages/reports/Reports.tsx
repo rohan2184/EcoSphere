@@ -46,12 +46,24 @@ export default function Reports() {
     }
   }
 
-  function exportUrl(format: string) {
+  async function exportReport(format: string) {
+    // fetched via axios (not <a href>) so the Bearer token is attached
+    setError("");
     const params = new URLSearchParams({ format, module: filters.module });
     for (const [k, v] of Object.entries(payload())) {
       if (v !== null && k !== "module") params.set(k, String(v));
     }
-    return `${api.defaults.baseURL}/reports/custom/export?${params}`;
+    try {
+      const res = await api.get(`/reports/custom/export?${params}`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${filters.module}-report.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   }
 
   return (
@@ -94,9 +106,7 @@ export default function Reports() {
         <Button type="submit" disabled={busy}>{busy ? "Running…" : "Run report"}</Button>
         <div className="ml-auto flex gap-2">
           {["csv", "xlsx", "pdf"].map((f) => (
-            <a key={f} href={exportUrl(f)} download>
-              <Button type="button" variant="outline">⬇ {f.toUpperCase()}</Button>
-            </a>
+            <Button key={f} type="button" variant="outline" onClick={() => exportReport(f)}>⬇ {f.toUpperCase()}</Button>
           ))}
         </div>
       </form>

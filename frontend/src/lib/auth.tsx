@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api } from "./api";
 
-// TODO(auth): flip to true once Person A lands /auth/* on the backend.
-// While false, ProtectedRoute lets everyone through so the app is usable in dev.
-export const AUTH_ENFORCED = false;
+// Backend /auth/* is live — every route requires a login.
+export const AUTH_ENFORCED = true;
 
 export interface User {
   id: number;
