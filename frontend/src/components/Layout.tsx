@@ -11,6 +11,7 @@ const nav: NavItem[] = [
   { to: "/governance/compliance", label: "Compliance", icon: "⚠" },
   { to: "/reports", label: "Reports", icon: "▤" },
   { to: "/social/csr-activities", label: "CSR Activities", icon: "♻" },
+  { to: "/social/diversity", label: "Social Insights", icon: "👥" },
   { to: "/gamification/challenges", label: "Challenges", icon: "🏆" },
   { to: "/gamification/leaderboard", label: "Leaderboard", icon: "📊" },
   { to: "/gamification/badges-rewards", label: "Badges & Rewards", icon: "🎖" },
@@ -19,6 +20,9 @@ const nav: NavItem[] = [
   { to: "/env/emission-factors", label: "Emission Factors", icon: "🏭", roles: ["admin", "manager"] },
   { to: "/env/carbon-transactions", label: "Carbon Transactions", icon: "💨", roles: ["admin", "manager"] },
   { to: "/env/goals", label: "Env Goals", icon: "🎯", roles: ["admin", "manager"] },
+  { to: "/env/products", label: "Product Profiles", icon: "📦", roles: ["admin", "manager"] },
+  // Settings — admin/manager only
+  { to: "/settings", label: "Settings", icon: "⚙", roles: ["admin", "manager"] },
 ];
 
 export default function Layout() {
