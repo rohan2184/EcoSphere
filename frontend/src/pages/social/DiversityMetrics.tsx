@@ -6,7 +6,7 @@ import EmptyState from "../../components/EmptyState";
 import { useToast } from "../../components/ToastProvider";
 import DataTable, { Column } from "../../components/DataTable";
 
-interface DiversityMetric {
+type DiversityMetric = Record<string, unknown> & {
   id: number;
   department_id: number;
   period: string;
@@ -15,7 +15,7 @@ interface DiversityMetric {
   training_completion_pct: number | null;
   created_at: string;
   updated_at: string;
-}
+};
 
 interface Department {
   id: number;
@@ -47,12 +47,13 @@ export default function DiversityMetrics() {
       setLoading(true);
       const [metricsRes, deptsRes] = await Promise.all([
         api.get<DiversityMetric[]>("/social/diversity"),
+        api.get<DiversityMetric[]>("/social/diversity"),
         api.get<Department[]>("/departments"),
       ]);
       setMetrics(metricsRes.data);
       setDepartments(deptsRes.data);
     } catch (err) {
-      showToast(errorMessage(err), "error");
+      showToast(errorMessage(err), "red");
     } finally {
       setLoading(false);
     }
@@ -97,16 +98,16 @@ export default function DiversityMetrics() {
     if (!window.confirm("Delete this metric permanently?")) return;
     try {
       await api.delete(`/social/diversity/${id}`);
-      showToast("Metric deleted", "success");
+      showToast("Metric deleted", "green");
       fetchData();
     } catch (err) {
-      showToast(errorMessage(err), "error");
+      showToast(errorMessage(err), "red");
     }
   };
 
   const handleSave = async () => {
     if (!deptId || !period) {
-      showToast("Department and Period are required.", "error");
+      showToast("Department and Period are required.", "red");
       return;
     }
 
@@ -121,10 +122,10 @@ export default function DiversityMetrics() {
     try {
       if (editingId) {
         await api.patch(`/social/diversity/${editingId}`, payload);
-        showToast("Metric updated successfully", "success");
+        showToast("Metric updated successfully", "green");
       } else {
         await api.post("/social/diversity", payload);
-        showToast("Metric created successfully", "success");
+        showToast("Metric created successfully", "green");
       }
       setDialogOpen(false);
       fetchData();
@@ -132,11 +133,11 @@ export default function DiversityMetrics() {
       // Show clear duplicate period error
       const msg = errorMessage(err);
       if (msg.includes("already exists")) {
-        showToast("A metric for this department and period already exists.", "error");
+        showToast("A metric for this department and period already exists.", "red");
       } else if (err.response?.status === 422) {
-         showToast("Validation Error. Ensure period format is YYYY-Q[1-4] and gender ratio is 0-100.", "error");
+         showToast("Validation Error. Ensure period format is YYYY-Q[1-4] and gender ratio is 0-100.", "red");
       } else {
-        showToast(msg, "error");
+        showToast(msg, "red");
       }
     }
   };
@@ -170,10 +171,10 @@ export default function DiversityMetrics() {
       label: "Actions",
       render: (r) => (
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => openEditDialog(r)}>
+          <Button variant="outline" className="px-3 py-1 text-xs" onClick={() => openEditDialog(r as DiversityMetric)}>
             Edit
           </Button>
-          <Button variant="danger" size="sm" onClick={() => handleDelete(r.id)}>
+          <Button variant="danger" className="px-3 py-1 text-xs" onClick={() => handleDelete(r.id as number)}>
             Delete
           </Button>
         </div>
@@ -200,7 +201,8 @@ export default function DiversityMetrics() {
         <EmptyState
           title="No metrics found"
           description="You haven't added any diversity metrics yet."
-          action={{ label: "Add Metric", onClick: openCreateDialog }}
+          actionLabel="Add Metric"
+          onAction={openCreateDialog}
         />
       ) : (
         <DataTable columns={columns} rows={metrics} />
