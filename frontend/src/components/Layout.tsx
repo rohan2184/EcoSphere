@@ -2,7 +2,9 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import NotificationBell from "./NotificationBell";
 
-const nav = [
+type NavItem = { to: string; label: string; icon: string; roles?: string[] };
+
+const nav: NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: "◉" },
   { to: "/governance/policies", label: "Policies", icon: "§" },
   { to: "/governance/audits", label: "Audits", icon: "✓" },
@@ -12,6 +14,11 @@ const nav = [
   { to: "/gamification/challenges", label: "Challenges", icon: "🏆" },
   { to: "/gamification/leaderboard", label: "Leaderboard", icon: "📊" },
   { to: "/gamification/badges-rewards", label: "Badges & Rewards", icon: "🎖" },
+  // Env module — master/env writes are admin/manager only (plan §8)
+  { to: "/env/dashboard", label: "Emissions", icon: "🌍" },
+  { to: "/env/emission-factors", label: "Emission Factors", icon: "🏭", roles: ["admin", "manager"] },
+  { to: "/env/carbon-transactions", label: "Carbon Transactions", icon: "💨", roles: ["admin", "manager"] },
+  { to: "/env/goals", label: "Env Goals", icon: "🎯", roles: ["admin", "manager"] },
 ];
 
 export default function Layout() {
@@ -24,7 +31,9 @@ export default function Layout() {
           <div className="text-[11px] font-normal text-emerald-300/80">ESG Management</div>
         </div>
         <nav className="flex-1 px-2 space-y-0.5">
-          {nav.map((item) => (
+          {nav
+            .filter((item) => !item.roles || (user && item.roles.includes(user.role)))
+            .map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

@@ -13,13 +13,14 @@ def calculate_emission(quantity: float, emission_factor: EmissionFactor) -> floa
 def create_carbon_transaction(
     db: Session,
     data: CarbonTransactionCreate,
-    auto_generated: bool = False,
 ) -> CarbonTransaction:
-    """Create a CarbonTransaction.
+    """Create a CarbonTransaction, honouring the live auto-calc setting (Gate 2).
 
-    If Settings.auto_emission_calc is True, always look up the EmissionFactor
-    and (re)compute co2e_amount server-side, ignoring any client-supplied value.
-    If False, trust the co2e_amount provided in the request (manual entry).
+    If Settings.auto_emission_calc is True: look up the EmissionFactor, compute
+    co2e_amount = quantity * factor_value server-side (ignoring any client value)
+    and flag the row auto_generated=True.
+    If False: the client must supply co2e_amount (manual entry); auto_generated
+    stays False.
     """
     settings = db.query(Settings).first()
     auto_calc = bool(settings and settings.auto_emission_calc)
@@ -35,8 +36,13 @@ def create_carbon_transaction(
         if not emission_factor:
             raise HTTPException(status_code=404, detail="Emission factor not found")
         payload["co2e_amount"] = calculate_emission(data.quantity, emission_factor)
+    elif payload.get("co2e_amount") is None:
+        raise HTTPException(
+            status_code=422,
+            detail="co2e_amount is required when auto emission calculation is off",
+        )
 
-    txn = CarbonTransaction(**payload, auto_generated=auto_generated)
+    txn = CarbonTransaction(**payload, auto_generated=auto_calc)
     db.add(txn)
     db.commit()
     db.refresh(txn)
