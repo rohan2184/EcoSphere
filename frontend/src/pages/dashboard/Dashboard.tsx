@@ -33,10 +33,11 @@ interface Overview {
 
 interface EnvDashboard {
   total_co2e: number;
-  transaction_count: number;
-  by_department: { department: string; co2e: number }[];
-  by_source_type: { source_type: string; co2e: number }[];
-  monthly_trend: { month: string; co2e: number }[];
+  transaction_count?: number;
+  by_department?: { department: string; co2e: number }[];
+  by_source_type?: { source_type: string; co2e: number }[];
+  monthly_trend?: { month: string; co2e: number }[];
+  emissions_trend?: { period: string; total_co2e: number }[];
 }
 
 const NOTIFICATION_ICONS: Record<string, string> = {
@@ -129,15 +130,23 @@ export default function Dashboard() {
       </div>
 
       {/* 📈 Emissions Trend (12 mo) */}
-      {envData && envData.monthly_trend.length > 0 && (
-        <ChartCard title="Emissions Trend (12 mo · kg CO₂e)">
+      {envData && ((envData.emissions_trend && envData.emissions_trend.length > 0) || (envData.monthly_trend && envData.monthly_trend.length > 0)) && (
+        <ChartCard title="Emissions Trend (kg CO₂e)">
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={envData.monthly_trend}>
+            <LineChart data={envData.emissions_trend || envData.monthly_trend || []}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" fontSize={12} />
+              <XAxis dataKey={envData.emissions_trend ? "period" : "month"} fontSize={12} />
               <YAxis fontSize={12} />
               <Tooltip />
-              <Line type="monotone" dataKey="co2e" name="CO₂e" stroke="#047857" strokeWidth={2} dot isAnimationActive={false} />
+              <Line
+                type="monotone"
+                dataKey={envData.emissions_trend ? "total_co2e" : "co2e"}
+                name="CO₂e"
+                stroke="#047857"
+                strokeWidth={2}
+                dot
+                isAnimationActive={false}
+              />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -163,7 +172,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard title="Compliance Alerts (overdue)">
-          {data.compliance_alerts.length === 0 ? (
+          {(!data.compliance_alerts || data.compliance_alerts.length === 0) ? (
             <p className="text-sm text-stone-400">Nothing overdue. 🎉</p>
           ) : (
             <ul className="space-y-2">
@@ -180,7 +189,7 @@ export default function Dashboard() {
 
         {/* 🕒 Recent Activity (relabeled from Recent Notifications) */}
         <ChartCard title="Recent Activity">
-          {data.recent_notifications.length === 0 ? (
+          {(!data.recent_notifications || data.recent_notifications.length === 0) ? (
             <p className="text-sm text-stone-400">No recent activity.</p>
           ) : (
             <ul className="space-y-2">
