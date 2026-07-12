@@ -46,7 +46,7 @@ export default function DiversityMetrics() {
     try {
       setLoading(true);
       const [metricsRes, deptsRes] = await Promise.all([
-        api.get<DiversityMetric[]>("/social/diversity-metrics"),
+        api.get<DiversityMetric[]>("/social/diversity"),
         api.get<Department[]>("/departments"),
       ]);
       setMetrics(metricsRes.data);
@@ -96,7 +96,7 @@ export default function DiversityMetrics() {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Delete this metric permanently?")) return;
     try {
-      await api.delete(`/social/diversity-metrics/${id}`);
+      await api.delete(`/social/diversity/${id}`);
       showToast("Metric deleted", "success");
       fetchData();
     } catch (err) {
@@ -120,10 +120,10 @@ export default function DiversityMetrics() {
 
     try {
       if (editingId) {
-        await api.patch(`/social/diversity-metrics/${editingId}`, payload);
+        await api.patch(`/social/diversity/${editingId}`, payload);
         showToast("Metric updated successfully", "success");
       } else {
-        await api.post("/social/diversity-metrics", payload);
+        await api.post("/social/diversity", payload);
         showToast("Metric created successfully", "success");
       }
       setDialogOpen(false);

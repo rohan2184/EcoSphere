@@ -37,9 +37,9 @@ router = APIRouter(prefix="/social", tags=["Social"])
 
 # ── Helper ───────────────────────────────────────────────────────────────────
 
-def _require_admin(current_user: dict) -> None:
+def _require_admin(current_user) -> None:
     """Raise 403 if the caller is not an admin."""
-    if current_user.get("role") != "admin":
+    if current_user.role.value != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
