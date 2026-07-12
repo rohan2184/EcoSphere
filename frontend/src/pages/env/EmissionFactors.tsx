@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import DataTable from "../../components/DataTable";
-import { Button, Chip, Dialog, Input, Select, Toast } from "../../components/ui";
+import EmptyState from "../../components/EmptyState";
+import { Button, Chip, Dialog, Input, Select } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const SOURCE_TYPES = ["purchase", "manufacturing", "expense", "fleet"] as const;
 type SourceType = (typeof SOURCE_TYPES)[number];
@@ -31,11 +33,15 @@ const EMPTY_FORM: FormState = {
   status: "active",
 };
 
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-stone-200 ${className}`} />;
+}
+
 export default function EmissionFactors() {
+  const { showToast } = useToast();
   const [rows, setRows] = useState<EmissionFactor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState<{ message: string; tone: "green" | "red" } | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EmissionFactor | null>(null);
@@ -84,15 +90,15 @@ export default function EmissionFactors() {
       };
       if (editing) {
         await api.put(`/env/emission-factors/${editing.id}`, payload);
-        setToast({ message: "Emission factor updated.", tone: "green" });
+        showToast("Emission factor updated.", "green");
       } else {
         await api.post("/env/emission-factors", payload);
-        setToast({ message: "Emission factor added.", tone: "green" });
+        showToast("Emission factor added.", "green");
       }
       setDialogOpen(false);
       load();
     } catch (err) {
-      setToast({ message: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setSaving(false);
     }
@@ -102,34 +108,43 @@ export default function EmissionFactors() {
     if (!confirm(`Delete emission factor "${row.name}"?`)) return;
     try {
       await api.delete(`/env/emission-factors/${row.id}`);
-      setToast({ message: "Emission factor deleted.", tone: "green" });
+      showToast("Emission factor deleted.", "green");
       load();
     } catch (err) {
-      setToast({ message: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     }
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-stone-800">Emission Factors</h1>
-          <p className="text-sm text-stone-500">CO₂e conversion factors used to calculate carbon transactions.</p>
+          <p className="text-sm text-stone-500">CO&#8322;e conversion factors used to calculate carbon transactions.</p>
         </div>
         <Button onClick={openAdd}>+ Add Emission Factor</Button>
       </div>
 
       {error && (
         <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          <span>{error}</span>
-          <button onClick={load} className="underline">Retry</button>
+          <span>Failed to load: {error}</span>
+          <button onClick={load} className="underline hover:text-red-900 ml-4">Retry</button>
         </div>
       )}
 
       {loading ? (
-        <div className="rounded-xl border border-stone-200 bg-white p-10 text-center text-stone-400 shadow-sm">
-          Loading emission factors…
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm space-y-3">
+          <SkeletonBlock className="h-4 w-32" />
+          {[0, 1, 2, 3].map((i) => <SkeletonBlock key={i} className="h-10 w-full" />)}
         </div>
+      ) : rows.length === 0 && !error ? (
+        <EmptyState
+          icon="🏭"
+          title="No emission factors yet"
+          description="Add your first emission factor to start recording carbon transactions."
+          actionLabel="+ Add Emission Factor"
+          onAction={openAdd}
+        />
       ) : (
         <DataTable<EmissionFactor>
           columns={[
@@ -142,13 +157,13 @@ export default function EmissionFactors() {
             { key: "unit", label: "Unit" },
             {
               key: "factor_value",
-              label: "Factor (kg CO₂e/unit)",
+              label: "Factor (kg CO\u2082e/unit)",
               render: (r) => <span className="tabular-nums">{r.factor_value}</span>,
             },
             {
               key: "status",
               label: "Status",
-              render: (r) => <Chip tone={r.status === "active" ? "green" : "neutral"}>{r.status ?? "—"}</Chip>,
+              render: (r) => <Chip tone={r.status === "active" ? "green" : "neutral"}>{r.status ?? "\u2014"}</Chip>,
             },
             {
               key: "actions",
@@ -162,7 +177,7 @@ export default function EmissionFactors() {
             },
           ]}
           rows={rows}
-          empty="No emission factors yet — add the first one to get started."
+          empty="No emission factors yet."
         />
       )}
 
@@ -221,23 +236,23 @@ export default function EmissionFactors() {
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-stone-600">Status</label>
-            <Input
-              placeholder="e.g. active"
+            <Select
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value })}
               className="w-full"
-            />
+            >
+              <option value="active">active</option>
+              <option value="inactive">inactive</option>
+            </Select>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : editing ? "Save changes" : "Add factor"}
+              {saving ? "Saving\u2026" : editing ? "Save changes" : "Add factor"}
             </Button>
           </div>
         </form>
       </Dialog>
-
-      {toast && <Toast message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

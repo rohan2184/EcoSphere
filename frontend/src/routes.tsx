@@ -47,6 +47,7 @@ export default function AppRoutes() {
         <Route path="governance/compliance" element={<ComplianceIssues />} />
         <Route path="reports" element={<Reports />} />
         {/* Person A: env module routes here */}
+        <Route path="env" element={<Navigate to="/env/dashboard" replace />} />
         <Route path="env/dashboard" element={<EmissionsDashboard />} />
         <Route path="env/emission-factors" element={<EmissionFactors />} />
         <Route path="env/carbon-transactions" element={<CarbonTransactions />} />
