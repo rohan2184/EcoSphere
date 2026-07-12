@@ -22,6 +22,7 @@ import Settings from "./pages/settings/Settings";
 import ProductProfiles from "./pages/env/ProductProfiles";
 import DiversityDashboard from "./pages/social/DiversityDashboard";
 import DiversityMetrics from "./pages/social/DiversityMetrics";
+import Operations from "./pages/env/Operations";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -54,6 +55,7 @@ export default function AppRoutes() {
         <Route path="env/carbon-transactions" element={<CarbonTransactions />} />
         <Route path="env/goals" element={<Goals />} />
         <Route path="env/products" element={<ProductProfiles />} />
+        <Route path="env/operations" element={<Operations />} />
 
         {/* Person B: social + gamification routes here */}
         <Route path="social/csr-activities" element={<CSRActivityList />} />

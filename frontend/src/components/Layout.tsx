@@ -22,6 +22,7 @@ const nav: NavItem[] = [
   { to: "/env/carbon-transactions", label: "Carbon Transactions", icon: "💨", roles: ["admin", "manager"] },
   { to: "/env/goals", label: "Env Goals", icon: "🎯", roles: ["admin", "manager"] },
   { to: "/env/products", label: "Product Profiles", icon: "📦", roles: ["admin", "manager"] },
+  { to: "/env/operations", label: "Operations", icon: "📋", roles: ["admin", "manager"] },
   // Settings — admin/manager only
   { to: "/settings", label: "Settings", icon: "⚙", roles: ["admin", "manager"] },
 ];
