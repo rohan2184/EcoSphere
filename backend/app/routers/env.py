@@ -9,15 +9,20 @@ from app.models.auth import User
 from app.models.core import Department
 from app.models.env import (
     EmissionFactor, ProductESGProfile, CarbonTransaction, EnvironmentalGoal,
+    OperationRecord,
 )
 from app.schemas.env import (
     EmissionFactorCreate, EmissionFactorUpdate, EmissionFactorOut,
     ProductESGProfileCreate, ProductESGProfileUpdate, ProductESGProfileOut,
     CarbonTransactionCreate, CarbonTransactionOut,
     EnvironmentalGoalCreate, EnvironmentalGoalUpdate, EnvironmentalGoalOut,
+    OperationRecordCreate, OperationRecordUpdate, OperationRecordOut,
+    OperationRecordWithTransaction,
 )
 from app.services.emissions import (
     create_carbon_transaction,
+    create_operation_record,
+    resolve_emission_factor,
     get_emissions_trend,
     get_department_breakdown,
     get_goals_progress,
@@ -217,4 +222,80 @@ def delete_goal(id: int, db: Session = Depends(get_db), user: User = Depends(req
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     db.delete(goal)
+    db.commit()
+
+
+# ── Operation Records ─────────────────────────────────────────────────────
+
+@router.get("/operations", response_model=List[OperationRecordOut])
+def list_operations(
+    department_id: Optional[int] = None,
+    op_type: Optional[str] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List operation records with optional filters."""
+    from app.models.env import SourceType as ST
+    query = db.query(OperationRecord)
+    if department_id is not None:
+        query = query.filter(OperationRecord.department_id == department_id)
+    if op_type is not None:
+        try:
+            query = query.filter(OperationRecord.op_type == ST(op_type))
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid op_type '{op_type}'")
+    if date_from is not None:
+        query = query.filter(OperationRecord.date >= date_from)
+    if date_to is not None:
+        query = query.filter(OperationRecord.date <= date_to)
+    return query.order_by(OperationRecord.date.desc()).all()
+
+
+@router.post("/operations", response_model=OperationRecordWithTransaction, status_code=status.HTTP_201_CREATED)
+def post_operation(
+    op_in: OperationRecordCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "manager")),
+):
+    """Create an OperationRecord. When Settings.auto_emission_calc is ON,
+    automatically resolves an EmissionFactor and creates a linked
+    CarbonTransaction. Response includes both the operation and the
+    generated transaction (or null) plus an optional warning string."""
+    op, txn, warning = create_operation_record(db, op_in)
+    return OperationRecordWithTransaction(
+        operation=OperationRecordOut.model_validate(op),
+        carbon_transaction=CarbonTransactionOut.model_validate(txn) if txn else None,
+        warning=warning,
+    )
+
+
+@router.put("/operations/{id}", response_model=OperationRecordOut)
+def update_operation(
+    id: int,
+    op_in: OperationRecordUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "manager")),
+):
+    op = db.query(OperationRecord).filter(OperationRecord.id == id).first()
+    if not op:
+        raise HTTPException(status_code=404, detail="Operation record not found")
+    for field, value in op_in.model_dump(exclude_unset=True).items():
+        setattr(op, field, value)
+    db.commit()
+    db.refresh(op)
+    return op
+
+
+@router.delete("/operations/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_operation(
+    id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("admin", "manager")),
+):
+    op = db.query(OperationRecord).filter(OperationRecord.id == id).first()
+    if not op:
+        raise HTTPException(status_code=404, detail="Operation record not found")
+    db.delete(op)
     db.commit()

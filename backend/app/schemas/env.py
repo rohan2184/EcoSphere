@@ -121,3 +121,43 @@ class EnvironmentalGoalOut(EnvironmentalGoalBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# OperationRecord Schemas
+class OperationRecordBase(BaseModel):
+    op_type: SourceType
+    department_id: int
+    product_id: Optional[int] = None
+    quantity: float
+    amount: float
+    date: date
+
+
+class OperationRecordCreate(OperationRecordBase):
+    pass
+
+
+class OperationRecordUpdate(BaseModel):
+    op_type: Optional[SourceType] = None
+    department_id: Optional[int] = None
+    product_id: Optional[int] = None
+    quantity: Optional[float] = None
+    amount: Optional[float] = None
+    date: Optional[date] = None
+
+
+class OperationRecordOut(OperationRecordBase):
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OperationRecordWithTransaction(BaseModel):
+    """POST /operations response: the new record plus any auto-generated transaction."""
+    operation: OperationRecordOut
+    carbon_transaction: Optional[CarbonTransactionOut] = None
+    # Populated when auto_emission_calc=True but no emission factor could be resolved.
+    warning: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
