@@ -25,7 +25,7 @@ def list_notifications(
     current_user: dict = Depends(get_current_user),
 ):
     """List current user's notifications, newest first."""
-    query = db.query(Notification).filter(Notification.user_id == current_user["id"])
+    query = db.query(Notification).filter(Notification.user_id == current_user.id)
     if unread_only:
         query = query.filter(Notification.is_read == False)  # noqa: E712
     return query.order_by(desc(Notification.created_at)).all()
@@ -40,7 +40,7 @@ def get_unread_count(
     count = (
         db.query(Notification)
         .filter(
-            Notification.user_id == current_user["id"],
+            Notification.user_id == current_user.id,
             Notification.is_read == False,  # noqa: E712
         )
         .count()
@@ -55,7 +55,7 @@ def mark_all_read(
 ):
     """Mark all unread notifications as read for the current user."""
     db.query(Notification).filter(
-        Notification.user_id == current_user["id"],
+        Notification.user_id == current_user.id,
         Notification.is_read == False,  # noqa: E712
     ).update({"is_read": True}, synchronize_session=False)
     
@@ -80,7 +80,7 @@ def mark_notification_read(
             status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
         )
     
-    if notification.user_id != current_user["id"]:
+    if notification.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not your notification"
         )

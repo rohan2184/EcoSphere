@@ -1,3 +1,4 @@
+from app.models.core import Settings
 """
 Social module router — CSR Activities & Employee Participation endpoints.
 
@@ -11,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, get_settings_stub
+from app.core.deps import get_current_user, get_db
 from app.schemas.reports import SocialReportOut
 from app.services.reports import get_social_report
 from app.schemas.social import (
@@ -123,7 +124,7 @@ def create_participation(
     """Submit participation for the current user (any authenticated user)."""
     return submit_participation(
         db,
-        user_id=current_user["id"],
+        user_id=current_user.id,
         csr_activity_id=data.csr_activity_id,
         proof_file=data.proof_file,
     )
@@ -147,7 +148,7 @@ def approve_or_reject_participation(
     Returns 404 if the participation does not exist.
     """
     _require_admin(current_user)
-    settings = get_settings_stub()
+    settings = (db.query(Settings).first() or Settings())
     try:
         return approve_participation(
             db,

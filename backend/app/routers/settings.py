@@ -1,3 +1,4 @@
+from app.models.core import Settings
 """
 Settings singleton (plan §8: Person A) — GET/PUT /api/settings.
 
@@ -10,7 +11,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, get_settings_stub, require_role
+from app.core.deps import get_current_user, get_db, require_role
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -45,7 +46,7 @@ def read_settings(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    return get_settings_stub()
+    return (db.query(Settings).first() or Settings())
 
 
 @router.put("", response_model=SettingsOut)
@@ -54,7 +55,7 @@ def update_settings(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
 ):
-    row = get_settings_stub()
+    row = (db.query(Settings).first() or Settings())
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(row, field, value)
     db.commit()

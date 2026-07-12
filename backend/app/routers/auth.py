@@ -54,5 +54,8 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserOut)
-def me(current_user: dict = Depends(get_current_user)):
-    return UserOut(**current_user)
+def me(current_user: User = Depends(get_current_user)):
+    return UserOut(
+        id=current_user.id, name=current_user.name, email=current_user.email,
+        role=current_user.role.value, department_id=current_user.department_id,
+    )
