@@ -3,7 +3,6 @@ import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useFakeRole } from "../lib/fakeAuth";
-import NotificationBell from "./NotificationBell";
 
 interface Notification {
   id: number;
@@ -90,16 +89,42 @@ function NotificationBell() {
   );
 }
 
-const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: "◉" },
-  { to: "/governance/policies", label: "Policies", icon: "§" },
-  { to: "/governance/audits", label: "Audits", icon: "✓" },
-  { to: "/governance/compliance", label: "Compliance", icon: "⚠" },
-  { to: "/reports", label: "Reports", icon: "▤" },
-  { to: "/social/csr-activities", label: "CSR Activities", icon: "♻" },
-  { to: "/gamification/challenges", label: "Challenges", icon: "🏆" },
-  { to: "/gamification/leaderboard", label: "Leaderboard", icon: "📊" },
-  { to: "/gamification/badges-rewards", label: "Badges & Rewards", icon: "🎖" },
+const navSections = [
+  {
+    section: null,
+    items: [{ to: "/dashboard", label: "Dashboard", icon: "◉" }],
+  },
+  {
+    section: "Environmental",
+    items: [
+      { to: "/env/emission-factors", label: "Emission Factors", icon: "🏭" },
+      { to: "/env/carbon-transactions", label: "Carbon Transactions", icon: "💨" },
+    ],
+  },
+  {
+    section: "Governance",
+    items: [
+      { to: "/governance/policies", label: "Policies", icon: "§" },
+      { to: "/governance/audits", label: "Audits", icon: "✓" },
+      { to: "/governance/compliance", label: "Compliance", icon: "⚠" },
+    ],
+  },
+  {
+    section: "Social",
+    items: [{ to: "/social/csr-activities", label: "CSR Activities", icon: "♻" }],
+  },
+  {
+    section: "Gamification",
+    items: [
+      { to: "/gamification/challenges", label: "Challenges", icon: "🏆" },
+      { to: "/gamification/leaderboard", label: "Leaderboard", icon: "📊" },
+      { to: "/gamification/badges-rewards", label: "Badges & Rewards", icon: "🎖" },
+    ],
+  },
+  {
+    section: null,
+    items: [{ to: "/reports", label: "Reports", icon: "▤" }],
+  },
 ];
 
 export default function Layout() {
@@ -112,20 +137,29 @@ export default function Layout() {
           🌿 EcoSphere
           <div className="text-[11px] font-normal text-emerald-300/80">ESG Management</div>
         </div>
-        <nav className="flex-1 px-2 space-y-0.5">
-          {nav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
-                  isActive ? "bg-emerald-800 font-medium" : "text-emerald-200/90 hover:bg-emerald-900"
-                }`
-              }
-            >
-              <span className="w-4 text-center">{item.icon}</span>
-              {item.label}
-            </NavLink>
+        <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
+          {navSections.map((group, i) => (
+            <div key={i} className={group.section ? "pt-2" : ""}>
+              {group.section && (
+                <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-400/60">
+                  {group.section}
+                </div>
+              )}
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                      isActive ? "bg-emerald-800 font-medium" : "text-emerald-200/90 hover:bg-emerald-900"
+                    }`
+                  }
+                >
+                  <span className="w-4 text-center">{item.icon}</span>
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

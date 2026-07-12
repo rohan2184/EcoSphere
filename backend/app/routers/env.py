@@ -14,9 +14,46 @@ from app.schemas.env import (
     CarbonTransactionCreate, CarbonTransactionOut,
     EnvironmentalGoalCreate, EnvironmentalGoalUpdate, EnvironmentalGoalOut,
 )
-from app.services.emissions import create_carbon_transaction
+from app.services.emissions import (
+    create_carbon_transaction,
+    get_emissions_trend,
+    get_department_breakdown,
+    get_goals_progress,
+    get_environmental_report,
+)
 
 router = APIRouter(prefix="/env", tags=["env"])
+
+
+# Report
+@router.get("/report")
+def get_report(
+    department_id: Optional[int] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_environmental_report(db, department_id, date_from, date_to)
+
+
+# Dashboard
+@router.get("/dashboard")
+def get_dashboard(
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    department_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trend = get_emissions_trend(db, date_from, date_to, department_id)
+    total_co2e = round(sum(point["total_co2e"] for point in trend), 2)
+    return {
+        "total_co2e": total_co2e,
+        "emissions_trend": trend,
+        "department_breakdown": get_department_breakdown(db, date_from, date_to),
+        "goals_progress": get_goals_progress(db, department_id),
+    }
 
 
 # Emission Factors

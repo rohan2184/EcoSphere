@@ -9,6 +9,8 @@ import Policies from "./pages/governance/Policies";
 import Audits from "./pages/governance/Audits";
 import ComplianceIssues from "./pages/governance/ComplianceIssues";
 import Reports from "./pages/reports/Reports";
+import EmissionFactors from "./pages/env/EmissionFactors";
+import CarbonTransactions from "./pages/env/CarbonTransactions";
 import CSRActivityList from "./pages/social/CSRActivityList";
 import ChallengeList from "./pages/gamification/ChallengeList";
 import Leaderboard from "./pages/gamification/Leaderboard";
@@ -40,7 +42,9 @@ export default function AppRoutes() {
         <Route path="governance/compliance" element={<ComplianceIssues />} />
         <Route path="reports" element={<Reports />} />
         {/* Person A: env module routes here */}
-        
+        <Route path="env/emission-factors" element={<EmissionFactors />} />
+        <Route path="env/carbon-transactions" element={<CarbonTransactions />} />
+
         {/* Person B: social + gamification routes here */}
         <Route path="social/csr-activities" element={<CSRActivityList />} />
         <Route path="gamification/challenges" element={<ChallengeList />} />
