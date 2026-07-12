@@ -61,7 +61,6 @@ def mark_all_read(
     db.commit()
     return {"status": "success", "detail": "All notifications marked as read"}
 
-
 @router.patch("/{notification_id}/read", response_model=NotificationOut)
 def mark_notification_read(
     notification_id: int,

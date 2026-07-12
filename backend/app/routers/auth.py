@@ -17,7 +17,6 @@ from app.schemas.auth import LoginIn, RegisterIn, TokenOut, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     email = body.email.strip().lower()

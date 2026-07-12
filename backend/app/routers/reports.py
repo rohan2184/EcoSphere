@@ -21,7 +21,6 @@ MEDIA_TYPES = {
     "pdf": "application/pdf",
 }
 
-
 class CustomReportRequest(BaseModel):
     module: str = "summary"        # env | social | gamification | governance | summary
     department_id: int | None = None
