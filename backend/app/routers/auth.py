@@ -17,7 +17,6 @@ from app.schemas.auth import LoginIn, RegisterIn, TokenOut, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
@@ -41,7 +40,6 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
         id=user.id, name=user.name, email=user.email,
         role=user.role.value, department_id=user.department_id,
     )
-
 
 @router.post("/login", response_model=TokenOut)
 def login(body: LoginIn, db: Session = Depends(get_db)):

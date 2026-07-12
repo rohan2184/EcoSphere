@@ -59,7 +59,7 @@ export default function Dashboard() {
       .catch((e) => setError(errorMessage(e)));
     api.get<EnvDashboard>("/env/dashboard")
       .then((r) => setEnvData(r.data))
-      .catch(() => {}); // non-critical
+      .catch(() => { }); // non-critical
   }, []);
 
   if (error) return <p className="text-red-600">Failed to load dashboard: {error}</p>;

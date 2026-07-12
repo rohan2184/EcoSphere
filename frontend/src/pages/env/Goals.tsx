@@ -188,7 +188,7 @@ export default function Goals() {
 
 
   useEffect(() => {
-    api.get<Department[]>("/departments").then((r) => setDepartments(r.data)).catch(() => {});
+    api.get<Department[]>("/departments").then((r) => setDepartments(r.data)).catch(() => { });
   }, []);
 
   const load = useCallback(() => {
