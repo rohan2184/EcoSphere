@@ -14,6 +14,11 @@ from app.routers import (
 
 app = FastAPI(title="EcoSphere API")
 
+from app.core.database import engine, Base
+from app.models import auth, core, env # import models to ensure they are registered
+
+Base.metadata.create_all(bind=engine)
+
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
@@ -22,6 +27,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from app.routers import auth, core, env
+
+app.include_router(auth.router, prefix="/api")
+app.include_router(core.router, prefix="/api")
+app.include_router(env.router, prefix="/api")
 
 @app.get("/health")
 def health_check():
