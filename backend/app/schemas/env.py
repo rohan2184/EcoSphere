@@ -70,8 +70,9 @@ class CarbonTransactionBase(BaseModel):
 
 
 class CarbonTransactionCreate(CarbonTransactionBase):
-    # co2e_amount may be ignored server-side when Settings.auto_emission_calc is on.
-    pass
+    # co2e_amount is optional: required only when Settings.auto_emission_calc is
+    # OFF (manual entry). When ON it is ignored and recomputed server-side.
+    co2e_amount: Optional[float] = None
 
 
 class CarbonTransactionUpdate(BaseModel):
