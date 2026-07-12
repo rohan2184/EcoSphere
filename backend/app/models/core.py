@@ -47,3 +47,6 @@ class Settings(Base, TimestampMixin):
     weight_gov = Column(Integer, default=30)
     notify_email = Column(Boolean, default=True)
     notify_inapp = Column(Boolean, default=True)
+    
+    from sqlalchemy import JSON
+    notification_prefs = Column(JSON, default=dict)

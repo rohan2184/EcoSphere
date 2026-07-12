@@ -133,6 +133,34 @@ def update_user(id: int, user_in: UserAdminUpdate, db: Session = Depends(get_db)
     db.refresh(user)
     return user
 
+from app.core.security import get_password_hash
+from app.schemas.core import UserCreate
+
+@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+def create_user(user_in: UserCreate, db: Session = Depends(get_db), admin_user: User = Depends(require_role("admin"))):
+    existing = db.query(User).filter(User.email == user_in.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    hashed_password = get_password_hash(user_in.password)
+    user_data = user_in.model_dump(exclude={"password"})
+    user_data["hashed_password"] = hashed_password
+    
+    user = User(**user_data)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+@router.delete("/users/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(id: int, db: Session = Depends(get_db), admin_user: User = Depends(require_role("admin"))):
+    user = db.query(User).filter(User.id == id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    return None
+
 # Settings (Singleton)
 @router.get("/settings", response_model=SettingsOut)
 def get_settings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

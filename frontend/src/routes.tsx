@@ -21,6 +21,7 @@ import Goals from "./pages/env/Goals";
 import Settings from "./pages/settings/Settings";
 import ProductProfiles from "./pages/env/ProductProfiles";
 import DiversityDashboard from "./pages/social/DiversityDashboard";
+import DiversityMetrics from "./pages/social/DiversityMetrics";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -57,6 +58,7 @@ export default function AppRoutes() {
         {/* Person B: social + gamification routes here */}
         <Route path="social/csr-activities" element={<CSRActivityList />} />
         <Route path="social/diversity" element={<DiversityDashboard />} />
+        <Route path="social/diversity-metrics" element={<DiversityMetrics />} />
         <Route path="gamification/challenges" element={<ChallengeList />} />
         <Route path="gamification/leaderboard" element={<Leaderboard />} />
         <Route path="gamification/badges-rewards" element={<BadgesAndRewards />} />

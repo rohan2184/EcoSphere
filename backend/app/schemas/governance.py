@@ -51,6 +51,7 @@ class AuditCreate(BaseModel):
     date: date_type | None = None
     scope: str | None = None
     result: str | None = None
+    status: str = "under_review"
 
 class AuditUpdate(BaseModel):
     title: str | None = None
@@ -59,6 +60,7 @@ class AuditUpdate(BaseModel):
     date: date_type | None = None
     scope: str | None = None
     result: str | None = None
+    status: str | None = None
 
 class AuditOut(OrmBase):
     id: int
@@ -68,6 +70,7 @@ class AuditOut(OrmBase):
     date: date_type | None
     scope: str | None
     result: str | None
+    status: str | None
     created_at: datetime | None
 
 

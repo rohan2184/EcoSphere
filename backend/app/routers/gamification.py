@@ -41,9 +41,13 @@ from app.services.gamification import (
     submit_challenge_participation,
     transition_challenge_status,
     update_challenge,
+    delete_challenge,
+    create_badge,
+    update_badge,
+    delete_badge,
     update_participation_progress,
 )
-from app.services.rewards import list_rewards, redeem_reward
+from app.services.rewards import list_rewards, redeem_reward, update_reward, delete_reward
 
 router = APIRouter(prefix="/gamification", tags=["Gamification"])
 
@@ -125,6 +129,22 @@ def patch_challenge(
         )
     return challenge
 
+
+@router.delete("/challenges/{challenge_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_challenge(
+    challenge_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a challenge (admin only)."""
+    _require_admin(current_user)
+    success = delete_challenge(db, challenge_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Challenge {challenge_id} not found",
+        )
+    return None
 
 @router.patch(
     "/challenges/{challenge_id}/status", response_model=ChallengeOut
@@ -250,6 +270,45 @@ def approve_or_reject_participation(
 
 # ── Badges ─────────────────────────────────────────────────────────────────────
 
+from app.schemas.gamification import BadgeCreate, BadgeUpdate
+
+@router.post("/badges", response_model=BadgeOut, status_code=status.HTTP_201_CREATED)
+def add_badge(
+    data: BadgeCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Create a new badge (admin only)."""
+    _require_admin(current_user)
+    return create_badge(db, data)
+
+@router.put("/badges/{badge_id}", response_model=BadgeOut)
+def patch_badge(
+    badge_id: int,
+    data: BadgeUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Update a badge (admin only)."""
+    _require_admin(current_user)
+    badge = update_badge(db, badge_id, data)
+    if not badge:
+        raise HTTPException(status_code=404, detail="Badge not found")
+    return badge
+
+@router.delete("/badges/{badge_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_badge(
+    badge_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a badge (admin only)."""
+    _require_admin(current_user)
+    success = delete_badge(db, badge_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Badge not found")
+    return None
+
 @router.get("/badges", response_model=list[BadgeOut])
 def list_all_badges(
     db: Session = Depends(get_db),
@@ -291,6 +350,35 @@ def get_user_badges(
 
 
 # ── Rewards ────────────────────────────────────────────────────────────────────
+
+from app.schemas.gamification import RewardUpdate
+
+@router.put("/rewards/{reward_id}", response_model=RewardOut)
+def patch_reward(
+    reward_id: int,
+    data: RewardUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Update a reward (admin only)."""
+    _require_admin(current_user)
+    reward = update_reward(db, reward_id, data)
+    if not reward:
+        raise HTTPException(status_code=404, detail="Reward not found")
+    return reward
+
+@router.delete("/rewards/{reward_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_reward(
+    reward_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a reward (admin only)."""
+    _require_admin(current_user)
+    success = delete_reward(db, reward_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Reward not found")
+    return None
 
 @router.get("/rewards", response_model=list[RewardOut])
 def list_available_rewards(

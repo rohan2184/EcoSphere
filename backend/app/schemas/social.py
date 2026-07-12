@@ -78,3 +78,35 @@ class EmployeeParticipationOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+# ── Diversity Metric Schemas ─────────────────────────────────────────────────
+
+class DiversityMetricCreate(BaseModel):
+    department_id: int
+    period: str = Field(..., pattern=r"^\d{4}-Q[1-4]$")
+    gender_ratio: Optional[float] = Field(None, ge=0, le=100)
+    avg_training_hours: Optional[float] = None
+    training_completion_pct: Optional[float] = None
+
+class DiversityMetricUpdate(BaseModel):
+    department_id: Optional[int] = None
+    period: Optional[str] = Field(None, pattern=r"^\d{4}-Q[1-4]$")
+    gender_ratio: Optional[float] = Field(None, ge=0, le=100)
+    avg_training_hours: Optional[float] = None
+    training_completion_pct: Optional[float] = None
+
+class DiversityMetricOut(BaseModel):
+    id: int
+    department_id: int
+    period: str
+    gender_ratio: Optional[float] = None
+    avg_training_hours: Optional[float] = None
+    training_completion_pct: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class TrainingAggregateOut(BaseModel):
+    avg_training_hours: float
+    training_completion_pct: float
