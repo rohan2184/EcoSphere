@@ -7,7 +7,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models.auth import User
-from app.models.gamification import Notification, Reward, RewardRedemption
+from app.models.gamification import Reward, RewardRedemption
+from app.services.notifications import create_notification
 
 
 def list_rewards(
@@ -31,7 +32,12 @@ def list_rewards(
     return query.all()
 
 
-def redeem_reward(db: Session, user_id: int, reward_id: int) -> RewardRedemption:
+def redeem_reward(
+    db: Session,
+    user_id: int,
+    reward_id: int,
+    settings: object = None,
+) -> RewardRedemption:
     """
     Redeem a reward for the current user using their points balance.
 
@@ -68,7 +74,8 @@ def redeem_reward(db: Session, user_id: int, reward_id: int) -> RewardRedemption
     )
     db.add(redemption)
 
-    notification = Notification(
+    create_notification(
+        db,
         user_id=user_id,
         type="reward_redeemed",
         title=f"Reward redeemed: {reward.name}",
@@ -76,8 +83,8 @@ def redeem_reward(db: Session, user_id: int, reward_id: int) -> RewardRedemption
             f"You redeemed \"{reward.name}\" for {reward.points_required} points. "
             f"Remaining balance: {user.points_balance} points."
         ),
+        settings=settings,
     )
-    db.add(notification)
 
     db.commit()
     db.refresh(redemption)

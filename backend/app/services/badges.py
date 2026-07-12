@@ -8,10 +8,10 @@ from app.models.auth import User
 from app.models.gamification import (
     Badge,
     ChallengeParticipation,
-    Notification,
     UserBadge,
 )
 from app.models.social import ApprovalStatus
+from app.services.notifications import create_notification
 
 
 def check_badge_unlocks(db: Session, user_id: int, settings: object) -> list[Badge]:
@@ -26,7 +26,7 @@ def check_badge_unlocks(db: Session, user_id: int, settings: object) -> list[Bad
 
     Side-effects for every newly unlocked badge:
       • Creates a UserBadge row.
-      • Creates a Notification row (type="badge_unlocked").
+      • Creates a Notification via the centralised helper.
 
     Returns a list of newly unlocked Badge objects.
     """
@@ -83,7 +83,8 @@ def check_badge_unlocks(db: Session, user_id: int, settings: object) -> list[Bad
         user_badge = UserBadge(user_id=user_id, badge_id=badge.id)
         db.add(user_badge)
 
-        notification = Notification(
+        create_notification(
+            db,
             user_id=user_id,
             type="badge_unlocked",
             title=f"Badge unlocked: {badge.name}",
@@ -91,8 +92,8 @@ def check_badge_unlocks(db: Session, user_id: int, settings: object) -> list[Bad
                 f"Congratulations! You've earned the \"{badge.name}\" badge. "
                 f"Keep up the great work!"
             ),
+            settings=settings,
         )
-        db.add(notification)
 
         newly_unlocked.append(badge)
 
