@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import DataTable from "../../components/DataTable";
 import { Button, Chip, Input } from "../../components/ui";
-import { useAuth } from "../../lib/auth";
 
 interface Policy extends Record<string, unknown> {
   id: number;
@@ -14,12 +13,9 @@ interface Policy extends Record<string, unknown> {
 }
 
 export default function Policies() {
-  const { user } = useAuth();
   const [rows, setRows] = useState<Policy[]>([]);
   const [error, setError] = useState("");
   const [form, setForm] = useState({ title: "", category: "", version: "1.0", effective_date: "" });
-  // TODO(auth): replace with current user once /auth/me works
-  const [ackUserId, setAckUserId] = useState("");
 
   const load = useCallback(() => {
     api.get<Policy[]>("/governance/policies").then((r) => setRows(r.data)).catch((e) => setError(errorMessage(e)));
@@ -44,13 +40,9 @@ export default function Policies() {
 
   async function acknowledge(policyId: number) {
     setError("");
-    const userId = user?.id ?? Number(ackUserId);
-    if (!userId) {
-      setError("Enter your user id to acknowledge (until login is wired).");
-      return;
-    }
     try {
-      await api.post(`/governance/policies/${policyId}/acknowledge`, { user_id: userId });
+      // backend derives the user from the JWT
+      await api.post(`/governance/policies/${policyId}/acknowledge`);
       load();
     } catch (err) {
       setError(errorMessage(err));
@@ -77,9 +69,6 @@ export default function Policies() {
         <Input placeholder="Version" value={form.version} onChange={(e) => setForm({ ...form, version: e.target.value })} className="w-24" />
         <Input type="date" value={form.effective_date} onChange={(e) => setForm({ ...form, effective_date: e.target.value })} />
         <Button type="submit">Add policy</Button>
-        {!user && (
-          <Input placeholder="Your user id (dev)" value={ackUserId} onChange={(e) => setAckUserId(e.target.value)} className="w-36 ml-auto" />
-        )}
       </form>
       {error && <p className="text-sm text-red-600">{error}</p>}
 

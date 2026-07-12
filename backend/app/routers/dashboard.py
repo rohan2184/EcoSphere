@@ -1,13 +1,17 @@
-# NOTE(auth): unprotected until Person A lands core/deps.py — add Depends(get_current_user) then.
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.models.gamification import Notification
 from app.routers.governance import ensure_overdue_notifications
 from app.services import scoring
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+router = APIRouter(
+    prefix="/dashboard",
+    tags=["dashboard"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 

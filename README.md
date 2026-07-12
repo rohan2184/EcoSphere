@@ -54,9 +54,11 @@ Copy `frontend/.env.example` to `frontend/.env` (defaults to `http://localhost:8
 - **Dashboard API**: `/api/dashboard/overview` (overall ESG, E/S/G, dept ranking, compliance alerts, notifications) and `/api/dashboard/scores`.
 - **Reports**: `/api/reports/{env|social|gamification|governance|summary}`, custom report builder (`POST /api/reports/custom`) with department / date range / module / employee / challenge / ESG-category filters, and export in **CSV, Excel, PDF** (`GET /api/reports/custom/export?format=csv|xlsx|pdf`).
 - **Frontend shell**: Tailwind v4, axios client with JWT interceptor, AuthContext, protected routes, shared Layout/Sidebar/StatCard/DataTable/ChartCard, Login/Register pages, and pages for Dashboard, Policies, Audits, Compliance, Reports.
+- **Auth (real)**: `POST /api/auth/register`, `POST /api/auth/login` (JWT), `GET /api/auth/me`; bcrypt-hashed passwords; `get_current_user` + `require_role` in `core/deps.py`. Every API route requires a Bearer token; mutating governance endpoints and `PUT /api/settings` require admin/manager. `AUTH_ENFORCED=true` in the frontend — login is mandatory. **The first user to register becomes admin** (bootstrap rule); everyone after is an employee.
+- **Settings API**: `GET/PUT /api/settings` — singleton row (created on first read) holding the four automation toggles + E/S/G weights. PUT is admin-only.
+- **Notification bell** in the topbar: unread badge (30s poll), dropdown list, mark-one/mark-all read — backed by Person B's `/api/notifications` endpoints (now mounted, along with social + gamification).
 
 ## Still open (other slices)
 
-- Auth endpoints (`/auth/register|login|me`) — Person A. Until then routes are unprotected and `AUTH_ENFORCED=false` in `frontend/src/lib/auth.tsx`.
 - Env module APIs/pages (emission factors, carbon transactions, goals) — Person A.
-- Social + gamification APIs/pages, notification endpoints, seed script — Person B.
+- Gamification/social frontend pages, seed script — Person B / Person A.
