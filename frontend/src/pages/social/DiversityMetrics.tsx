@@ -47,6 +47,7 @@ export default function DiversityMetrics() {
       setLoading(true);
       const [metricsRes, deptsRes] = await Promise.all([
         api.get<DiversityMetric[]>("/social/diversity"),
+        api.get<DiversityMetric[]>("/social/diversity"),
         api.get<Department[]>("/departments"),
       ]);
       setMetrics(metricsRes.data);
