@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
-import { useFakeRole } from "../../lib/fakeAuth";
+import { useAuth } from "../../lib/auth";
 import { Button, Chip, Dialog, Input, Select, Slider, Toast } from "../../components/ui";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
@@ -46,8 +46,8 @@ function statusTone(s: string): "green" | "amber" | "red" | "neutral" {
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export default function ChallengeList() {
-  const [role] = useFakeRole();
-  const isAdmin = role === "admin";
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
