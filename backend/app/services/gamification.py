@@ -1,20 +1,22 @@
 """
-Business logic for the Gamification module — Challenges & Challenge Participation.
+Business logic for the Gamification module — Challenges & Challenge Participation,
+XP/Points balance syncing.
 
 All functions are plain functions that receive a SQLAlchemy Session.
-They do NOT manage transactions (the caller / router handles commit).
 """
 
 from typing import Optional
 
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
+from app.models.auth import User
 from app.models.gamification import (
     Challenge,
     ChallengeParticipation,
     ChallengeStatus,
 )
-from app.models.social import ApprovalStatus
+from app.models.social import ApprovalStatus, EmployeeParticipation
 from app.schemas.gamification import ChallengeCreate, ChallengeUpdate
 
 
@@ -258,9 +260,66 @@ def approve_challenge_participation(
     participation.approval_status = ApprovalStatus.approved
     participation.xp_awarded = challenge.xp or 0
 
-    # TODO: after commit, call sync_user_xp(user_id) and
-    #       check_badge_unlocks(user_id) — wired in the badges step.
-
     db.commit()
     db.refresh(participation)
+
+    # Sync XP balance and check for badge unlocks
+    sync_user_xp(db, participation.user_id)
+
+    # Import here to avoid circular import at module level
+    from app.services.badges import check_badge_unlocks
+    check_badge_unlocks(db, participation.user_id, settings)
+
     return participation
+
+
+# ── XP / Points Balance Syncing ──────────────────────────────────────────────
+
+def sync_user_xp(db: Session, user_id: int) -> int:
+    """
+    Recompute user.xp_balance as the SUM of xp_awarded across all their
+    approved ChallengeParticipation rows, and persist it.
+
+    Returns the new xp_balance.
+    """
+    total_xp = (
+        db.query(sa_func.coalesce(sa_func.sum(ChallengeParticipation.xp_awarded), 0))
+        .filter(
+            ChallengeParticipation.user_id == user_id,
+            ChallengeParticipation.approval_status == ApprovalStatus.approved,
+        )
+        .scalar()
+    )
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise LookupError(f"User {user_id} not found")
+
+    user.xp_balance = int(total_xp)
+    db.commit()
+    db.refresh(user)
+    return user.xp_balance
+
+
+def sync_user_points(db: Session, user_id: int) -> int:
+    """
+    Recompute user.points_balance as the SUM of points_earned across all their
+    approved EmployeeParticipation rows, and persist it.
+
+    Returns the new points_balance.
+    """
+    total_points = (
+        db.query(sa_func.coalesce(sa_func.sum(EmployeeParticipation.points_earned), 0))
+        .filter(
+            EmployeeParticipation.user_id == user_id,
+            EmployeeParticipation.approval_status == ApprovalStatus.approved,
+        )
+        .scalar()
+    )
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise LookupError(f"User {user_id} not found")
+
+    user.points_balance = int(total_points)
+    db.commit()
+    db.refresh(user)
+    return user.points_balance

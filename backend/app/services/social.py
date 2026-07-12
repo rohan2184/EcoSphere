@@ -138,9 +138,11 @@ def approve_participation(
     participation.points_earned = activity.points_value
     participation.completion_date = date.today()
 
-    # TODO: sync participation.points_earned → user.points_balance
-    #       once the points-balance reconciliation service is built.
-
     db.commit()
     db.refresh(participation)
+
+    # Sync points balance to the User row
+    from app.services.gamification import sync_user_points
+    sync_user_points(db, participation.user_id)
+
     return participation

@@ -1,5 +1,6 @@
 """
-Gamification module router — Challenges & Challenge Participation endpoints.
+Gamification module router — Challenges, Participation, Badges, Rewards,
+Leaderboard endpoints.
 
 Wire into main.py with:
     app.include_router(gamification.router, prefix="/api")
@@ -8,10 +9,14 @@ Wire into main.py with:
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db, get_settings_stub
+from app.models.auth import User
+from app.models.gamification import Badge, UserBadge
 from app.schemas.gamification import (
+    BadgeOut,
     ChallengeCreate,
     ChallengeOut,
     ChallengeParticipationApprove,
@@ -20,6 +25,9 @@ from app.schemas.gamification import (
     ChallengeParticipationUpdate,
     ChallengeStatusUpdate,
     ChallengeUpdate,
+    RewardOut,
+    RewardRedemptionOut,
+    UserBadgeOut,
 )
 from app.services.gamification import (
     approve_challenge_participation,
@@ -31,6 +39,7 @@ from app.services.gamification import (
     update_challenge,
     update_participation_progress,
 )
+from app.services.rewards import list_rewards, redeem_reward
 
 router = APIRouter(prefix="/gamification", tags=["Gamification"])
 
@@ -233,3 +242,101 @@ def approve_or_reject_participation(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         )
+
+
+# ── Badges ─────────────────────────────────────────────────────────────────────
+
+@router.get("/badges", response_model=list[BadgeOut])
+def list_all_badges(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """List all available badges."""
+    return db.query(Badge).all()
+
+
+@router.get("/users/{user_id}/badges", response_model=list[UserBadgeOut])
+def get_user_badges(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """List all badges earned by a specific user."""
+    rows = (
+        db.query(
+            UserBadge.id,
+            UserBadge.user_id,
+            UserBadge.badge_id,
+            UserBadge.awarded_at,
+            Badge.name.label("badge_name"),
+        )
+        .join(Badge, Badge.id == UserBadge.badge_id)
+        .filter(UserBadge.user_id == user_id)
+        .all()
+    )
+    return [
+        UserBadgeOut(
+            id=r.id,
+            user_id=r.user_id,
+            badge_id=r.badge_id,
+            awarded_at=r.awarded_at,
+            badge_name=r.badge_name,
+        )
+        for r in rows
+    ]
+
+
+# ── Rewards ────────────────────────────────────────────────────────────────────
+
+@router.get("/rewards", response_model=list[RewardOut])
+def list_available_rewards(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    include_out_of_stock: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """List rewards (defaults to in-stock only)."""
+    return list_rewards(
+        db, status_filter=status_filter, include_out_of_stock=include_out_of_stock
+    )
+
+
+@router.post(
+    "/rewards/{reward_id}/redeem",
+    response_model=RewardRedemptionOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def redeem_a_reward(
+    reward_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Redeem a reward using the current user's points balance."""
+    try:
+        return redeem_reward(db, user_id=current_user["id"], reward_id=reward_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        )
+
+
+# ── Leaderboard ────────────────────────────────────────────────────────────────
+
+@router.get("/leaderboard")
+def get_leaderboard(
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Return top N users ranked by XP balance (descending)."""
+    rows = (
+        db.query(User.id, User.name, User.xp_balance)
+        .filter(User.is_active == True)  # noqa: E712
+        .order_by(desc(User.xp_balance))
+        .limit(limit)
+        .all()
+    )
+    return [
+        {"rank": idx + 1, "user_id": r.id, "name": r.name, "xp_balance": r.xp_balance or 0}
+        for idx, r in enumerate(rows)
+    ]
