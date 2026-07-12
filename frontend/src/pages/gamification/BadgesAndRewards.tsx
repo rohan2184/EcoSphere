@@ -32,22 +32,8 @@ interface Reward {
   status: string | null;
 }
 
-interface BadgeForm {
-  name: string;
-  description: string;
-  icon: string;
-  unlock_rule: string;
-}
 
-interface RewardForm {
-  name: string;
-  description: string;
-  points_required: string;
-  stock: string;
-}
 
-const EMPTY_BADGE_FORM: BadgeForm = { name: "", description: "", icon: "🎖", unlock_rule: "{}" };
-const EMPTY_REWARD_FORM: RewardForm = { name: "", description: "", points_required: "", stock: "" };
 
 /* ── Component ─────────────────────────────────────────────────────── */
 
@@ -241,7 +227,7 @@ export default function BadgesAndRewards() {
             title="No Badges Available"
             description="There are currently no badges defined for eco-milestones."
             actionLabel={isAdmin ? "+ Create Badge" : undefined}
-            onAction={isAdmin ? openBadgeCreate : undefined}
+            onAction={isAdmin ? openCreateBadge : undefined}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
