@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, Enum, Text
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, Enum, Text, UniqueConstraint
 from app.core.database import Base
 from app.models.core import TimestampMixin
 
@@ -31,6 +31,7 @@ class EmployeeParticipation(Base, TimestampMixin):
 
 class DiversityMetric(Base, TimestampMixin):
     __tablename__ = "diversity_metrics"
+    __table_args__ = (UniqueConstraint("department_id", "period", name="uix_dept_period"),)
 
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
     period = Column(String, nullable=False)  # e.g. "2026-Q2"

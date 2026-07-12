@@ -10,8 +10,8 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.social import CSRActivity, EmployeeParticipation, ApprovalStatus
-from app.schemas.social import CSRActivityCreate, CSRActivityUpdate
+from app.models.social import CSRActivity, EmployeeParticipation, ApprovalStatus, DiversityMetric
+from app.schemas.social import CSRActivityCreate, CSRActivityUpdate, DiversityMetricCreate, DiversityMetricUpdate
 
 
 # ── CSR Activity CRUD ────────────────────────────────────────────────────────
@@ -174,3 +174,54 @@ def approve_participation(
     )
 
     return participation
+
+# ── Diversity Metric CRUD ────────────────────────────────────────────────────
+
+def create_diversity_metric(db: Session, data: DiversityMetricCreate) -> DiversityMetric:
+    existing = db.query(DiversityMetric).filter(
+        DiversityMetric.department_id == data.department_id,
+        DiversityMetric.period == data.period
+    ).first()
+    if existing:
+        raise ValueError("A diversity metric for this department and period already exists — use update instead")
+    
+    metric = DiversityMetric(**data.model_dump())
+    db.add(metric)
+    db.commit()
+    db.refresh(metric)
+    return metric
+
+def list_diversity_metrics(
+    db: Session, 
+    department_id: Optional[int] = None, 
+    period: Optional[str] = None
+) -> list[DiversityMetric]:
+    query = db.query(DiversityMetric)
+    if department_id:
+        query = query.filter(DiversityMetric.department_id == department_id)
+    if period:
+        query = query.filter(DiversityMetric.period == period)
+    return query.all()
+
+def get_diversity_metric(db: Session, id: int) -> Optional[DiversityMetric]:
+    return db.get(DiversityMetric, id)
+
+def update_diversity_metric(db: Session, id: int, data: DiversityMetricUpdate) -> Optional[DiversityMetric]:
+    metric = db.get(DiversityMetric, id)
+    if not metric:
+        return None
+    
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(metric, field, value)
+    
+    db.commit()
+    db.refresh(metric)
+    return metric
+
+def delete_diversity_metric(db: Session, id: int) -> bool:
+    metric = db.get(DiversityMetric, id)
+    if not metric:
+        return False
+    db.delete(metric)
+    db.commit()
+    return True

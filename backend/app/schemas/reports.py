@@ -14,6 +14,14 @@ class CSRActivityBreakdown(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DiversitySummaryOut(BaseModel):
+    departments_reported: int
+    average_training_completion_pct: float
+    average_gender_ratio: float
+
+    model_config = {"from_attributes": True}
+
+
 class SocialReportOut(BaseModel):
     total_csr_activities: int
     total_participations: int
@@ -23,6 +31,7 @@ class SocialReportOut(BaseModel):
     total_points_awarded: int
     participation_rate: float
     activities: List[CSRActivityBreakdown]
+    diversity_summary: DiversitySummaryOut
 
     model_config = {"from_attributes": True}
 
