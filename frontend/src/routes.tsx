@@ -6,27 +6,24 @@ import Landing from "./pages/Landing";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Dashboard from "./pages/dashboard/Dashboard";
-import Policies from "./pages/governance/Policies";
-import Audits from "./pages/governance/Audits";
-import ComplianceIssues from "./pages/governance/ComplianceIssues";
 import Reports from "./pages/reports/Reports";
-import EmissionFactors from "./pages/env/EmissionFactors";
-import CarbonTransactions from "./pages/env/CarbonTransactions";
-import CSRActivityList from "./pages/social/CSRActivityList";
-import ChallengeList from "./pages/gamification/ChallengeList";
-import Leaderboard from "./pages/gamification/Leaderboard";
-import BadgesAndRewards from "./pages/gamification/BadgesAndRewards";
-import EmissionsDashboard from "./pages/env/EmissionsDashboard";
-import Goals from "./pages/env/Goals";
 import Settings from "./pages/settings/Settings";
-import ProductProfiles from "./pages/env/ProductProfiles";
-import DiversityDashboard from "./pages/social/DiversityDashboard";
-import DiversityMetrics from "./pages/social/DiversityMetrics";
+
+// Module tab pages (C1)
+import Environmental from "./pages/env/Environmental";
+import Social from "./pages/social/Social";
+import Governance from "./pages/governance/Governance";
+import GamificationPage from "./pages/gamification/Gamification";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
   if (AUTH_ENFORCED && !token) return <Navigate to="/login" replace />;
   return <>{children}</>;
+}
+
+/* Redirect helper: /old/path → /module?tab=key */
+function TabRedirect({ to, tab }: { to: string; tab: string }) {
+  return <Navigate to={`/${to}?tab=${tab}`} replace />;
 }
 
 export default function AppRoutes() {
@@ -43,28 +40,39 @@ export default function AppRoutes() {
         }
       >
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="governance/policies" element={<Policies />} />
-        <Route path="governance/audits" element={<Audits />} />
-        <Route path="governance/compliance" element={<ComplianceIssues />} />
+
+        {/* ── Module pages (C1 — tabbed) ────────────────────── */}
+        <Route path="environmental" element={<Environmental />} />
+        <Route path="social" element={<Social />} />
+        <Route path="governance" element={<Governance />} />
+        <Route path="gamification" element={<GamificationPage />} />
         <Route path="reports" element={<Reports />} />
-        {/* Person A: env module routes here */}
-        <Route path="env" element={<Navigate to="/env/dashboard" replace />} />
-        <Route path="env/dashboard" element={<EmissionsDashboard />} />
-        <Route path="env/emission-factors" element={<EmissionFactors />} />
-        <Route path="env/carbon-transactions" element={<CarbonTransactions />} />
-        <Route path="env/goals" element={<Goals />} />
-        <Route path="env/products" element={<ProductProfiles />} />
-
-        {/* Person B: social + gamification routes here */}
-        <Route path="social/csr-activities" element={<CSRActivityList />} />
-        <Route path="social/diversity" element={<DiversityDashboard />} />
-        <Route path="social/diversity-metrics" element={<DiversityMetrics />} />
-        <Route path="gamification/challenges" element={<ChallengeList />} />
-        <Route path="gamification/leaderboard" element={<Leaderboard />} />
-        <Route path="gamification/badges-rewards" element={<BadgesAndRewards />} />
-
-        {/* Settings (admin/manager) */}
         <Route path="settings" element={<Settings />} />
+
+        {/* ── Backward-compatibility redirects ──────────────── */}
+        {/* Env sub-routes → /environmental?tab=... */}
+        <Route path="env" element={<TabRedirect to="environmental" tab="emissions" />} />
+        <Route path="env/dashboard" element={<TabRedirect to="environmental" tab="emissions" />} />
+        <Route path="env/emission-factors" element={<TabRedirect to="environmental" tab="emission-factors" />} />
+        <Route path="env/carbon-transactions" element={<TabRedirect to="environmental" tab="carbon-transactions" />} />
+        <Route path="env/goals" element={<TabRedirect to="environmental" tab="goals" />} />
+        <Route path="env/products" element={<TabRedirect to="environmental" tab="product-profiles" />} />
+        <Route path="env/operations" element={<TabRedirect to="environmental" tab="operations" />} />
+
+        {/* Social sub-routes → /social?tab=... */}
+        <Route path="social/csr-activities" element={<TabRedirect to="social" tab="csr-activities" />} />
+        <Route path="social/diversity" element={<TabRedirect to="social" tab="diversity" />} />
+        <Route path="social/diversity-metrics" element={<TabRedirect to="social" tab="diversity" />} />
+
+        {/* Governance sub-routes → /governance?tab=... */}
+        <Route path="governance/policies" element={<TabRedirect to="governance" tab="policies" />} />
+        <Route path="governance/audits" element={<TabRedirect to="governance" tab="audits" />} />
+        <Route path="governance/compliance" element={<TabRedirect to="governance" tab="compliance" />} />
+
+        {/* Gamification sub-routes → /gamification?tab=... */}
+        <Route path="gamification/challenges" element={<TabRedirect to="gamification" tab="challenges" />} />
+        <Route path="gamification/leaderboard" element={<TabRedirect to="gamification" tab="leaderboard" />} />
+        <Route path="gamification/badges-rewards" element={<TabRedirect to="gamification" tab="badges-rewards" />} />
       </Route>
     </Routes>
   );

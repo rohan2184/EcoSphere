@@ -59,6 +59,13 @@ export default function CSRActivityList() {
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [loadingParts, setLoadingParts] = useState(false);
 
+  /* Admin: create activity dialog */
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    title: "", description: "", date: "", location: "", points_value: "10",
+  });
+  const [createSaving, setCreateSaving] = useState(false);
+
   /* ── Fetch activities ─────────────────────────────────────── */
 
   const fetchActivities = useCallback(async () => {
@@ -129,6 +136,43 @@ export default function CSRActivityList() {
     }
   }
 
+  /* ── Admin: create activity ────────────────────────────────── */
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateSaving(true);
+    try {
+      await api.post("/social/csr-activities", {
+        title: createForm.title,
+        description: createForm.description || null,
+        date: createForm.date || null,
+        location: createForm.location || null,
+        points_value: Number(createForm.points_value),
+      });
+      showToast("CSR Activity created successfully!", "green");
+      setCreateOpen(false);
+      setCreateForm({ title: "", description: "", date: "", location: "", points_value: "10" });
+      fetchActivities();
+    } catch (err) {
+      showToast(errorMessage(err), "red");
+    } finally {
+      setCreateSaving(false);
+    }
+  }
+
+  /* ── Admin: delete activity ────────────────────────────────── */
+
+  async function handleDelete(activityId: number) {
+    if (!confirm("Delete this CSR activity? This cannot be undone.")) return;
+    try {
+      await api.delete(`/social/csr-activities/${activityId}`);
+      showToast("CSR Activity deleted.", "green");
+      fetchActivities();
+    } catch (err) {
+      showToast(errorMessage(err), "red");
+    }
+  }
+
   /* ── Render ────────────────────────────────────────────────── */
 
   return (
@@ -138,6 +182,7 @@ export default function CSRActivityList() {
           <h1 className="text-2xl font-bold text-stone-900">CSR Activities</h1>
           <p className="text-sm text-stone-500 mt-1">Corporate Social Responsibility initiatives</p>
         </div>
+        {isAdmin && <Button onClick={() => setCreateOpen(true)}>+ Create Activity</Button>}
       </div>
 
       {loading ? (
@@ -184,20 +229,25 @@ export default function CSRActivityList() {
                 </Button>
               )}
 
-              {/* Admin: Review participations toggle */}
+              {/* Admin: Review participations toggle + Delete */}
               {isAdmin && (
                 <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      const expanding = reviewActivityId !== act.id;
-                      setReviewActivityId(expanding ? act.id : null);
-                      if (expanding) fetchParticipations(act.id);
-                    }}
-                  >
-                    {reviewActivityId === act.id ? "Hide Participations" : "Review Participations"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const expanding = reviewActivityId !== act.id;
+                        setReviewActivityId(expanding ? act.id : null);
+                        if (expanding) fetchParticipations(act.id);
+                      }}
+                    >
+                      {reviewActivityId === act.id ? "Hide" : "Review"}
+                    </Button>
+                    <Button variant="danger" onClick={() => handleDelete(act.id)}>
+                      Delete
+                    </Button>
+                  </div>
 
                   {reviewActivityId === act.id && (
                     <div className="mt-2 space-y-2 border-t border-stone-100 pt-2">
@@ -276,6 +326,72 @@ export default function CSRActivityList() {
             </Button>
           </div>
         </div>
+      </Dialog>
+
+      {/* ── Create Activity Dialog (admin) ─────────────────────── */}
+      <Dialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create CSR Activity"
+      >
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-stone-600">Title</label>
+            <Input
+              required
+              placeholder="e.g. Beach Cleanup Drive"
+              value={createForm.title}
+              onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+              className="w-full"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-stone-600">Description</label>
+            <Input
+              placeholder="Activity description"
+              value={createForm.description}
+              onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+              className="w-full"
+            />
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-stone-600">Date</label>
+              <Input
+                type="date"
+                value={createForm.date}
+                onChange={(e) => setCreateForm({ ...createForm, date: e.target.value })}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-stone-600">Points</label>
+              <Input
+                required
+                type="number"
+                min="1"
+                value={createForm.points_value}
+                onChange={(e) => setCreateForm({ ...createForm, points_value: e.target.value })}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-stone-600">Location</label>
+            <Input
+              placeholder="e.g. Marina Beach, Chennai"
+              value={createForm.location}
+              onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
+              className="w-full"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={createSaving}>
+              {createSaving ? "Creating…" : "Create Activity"}
+            </Button>
+          </div>
+        </form>
       </Dialog>
     </div>
   );
