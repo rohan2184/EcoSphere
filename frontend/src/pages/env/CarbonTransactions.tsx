@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import DataTable from "../../components/DataTable";
-import { Button, Chip, Dialog, Input, Select, Toast } from "../../components/ui";
+import EmptyState from "../../components/EmptyState";
+import { Button, Chip, Dialog, Input, Select } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const SOURCE_TYPES = ["purchase", "manufacturing", "expense", "fleet"] as const;
 type SourceType = (typeof SOURCE_TYPES)[number];
@@ -63,7 +65,12 @@ function emptyForm(): FormState {
   };
 }
 
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-stone-200 ${className}`} />;
+}
+
 export default function CarbonTransactions() {
+  const { showToast } = useToast();
   const [rows, setRows] = useState<CarbonTransaction[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [factors, setFactors] = useState<EmissionFactor[]>([]);
@@ -71,7 +78,6 @@ export default function CarbonTransactions() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState<{ message: string; tone: "green" | "red" } | null>(null);
 
   // Filters
   const [filterDept, setFilterDept] = useState("");
@@ -154,11 +160,11 @@ export default function CarbonTransactions() {
         date: form.date,
       };
       await api.post("/env/carbon-transactions", payload);
-      setToast({ message: "Transaction added.", tone: "green" });
+      showToast("Transaction added.", "green");
       setDialogOpen(false);
       load();
     } catch (err) {
-      setToast({ message: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setSaving(false);
     }
@@ -168,9 +174,9 @@ export default function CarbonTransactions() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold text-stone-800">Carbon Transactions</h1>
             {autoCalc !== null && (
               <Chip tone={autoCalc ? "green" : "neutral"}>
@@ -178,7 +184,7 @@ export default function CarbonTransactions() {
               </Chip>
             )}
           </div>
-          <p className="text-sm text-stone-500">Recorded emission events and their CO₂e footprint.</p>
+          <p className="text-sm text-stone-500">Recorded emission events and their CO&#8322;e footprint.</p>
         </div>
         <Button onClick={openAdd}>+ Add Transaction</Button>
       </div>
@@ -218,15 +224,28 @@ export default function CarbonTransactions() {
 
       {error && (
         <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          <span>{error}</span>
-          <button onClick={load} className="underline">Retry</button>
+          <span>Failed to load: {error}</span>
+          <button onClick={load} className="underline hover:text-red-900 ml-4">Retry</button>
         </div>
       )}
 
       {loading ? (
-        <div className="rounded-xl border border-stone-200 bg-white p-10 text-center text-stone-400 shadow-sm">
-          Loading transactions…
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm space-y-3">
+          <SkeletonBlock className="h-4 w-32" />
+          {[0, 1, 2, 3, 4].map((i) => <SkeletonBlock key={i} className="h-10 w-full" />)}
         </div>
+      ) : rows.length === 0 && !error ? (
+        <EmptyState
+          icon="&#128168;"
+          title={hasActiveFilters ? "No results for these filters" : "No transactions yet"}
+          description={
+            hasActiveFilters
+              ? "Try adjusting the department or date range filters."
+              : "Add a carbon transaction to start tracking your emissions footprint."
+          }
+          actionLabel={hasActiveFilters ? undefined : "+ Add Transaction"}
+          onAction={hasActiveFilters ? undefined : openAdd}
+        />
       ) : (
         <DataTable<CarbonTransaction>
           columns={[
@@ -245,29 +264,29 @@ export default function CarbonTransactions() {
             { key: "emission_factor", label: "Emission Factor", render: (r) => factorName(r.emission_factor_id) },
             {
               key: "co2e_amount",
-              label: "CO₂e (kg)",
+              label: "CO\u2082e (kg)",
               render: (r) => <span className="tabular-nums font-medium">{r.co2e_amount}</span>,
             },
             {
               key: "auto_generated",
               label: "Auto",
               render: (r) =>
-                r.auto_generated ? <Chip tone="green">⚙ auto</Chip> : <Chip tone="neutral">manual</Chip>,
+                r.auto_generated ? <Chip tone="green">&#9881; auto</Chip> : <Chip tone="neutral">manual</Chip>,
             },
           ]}
           rows={rows}
           empty={
             hasActiveFilters
               ? "No transactions match these filters."
-              : "No transactions yet — add one to start tracking emissions."
+              : "No transactions yet \u2014 add one to start tracking emissions."
           }
         />
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title="Add Transaction">
         <form onSubmit={submit} className="space-y-3">
-          <div className="flex gap-3">
-            <div className="flex-1 space-y-1">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[140px] space-y-1">
               <label className="text-xs font-medium text-stone-600">Department</label>
               <Select
                 required
@@ -275,13 +294,13 @@ export default function CarbonTransactions() {
                 onChange={(e) => setForm({ ...form, department_id: e.target.value })}
                 className="w-full"
               >
-                <option value="" disabled>Select…</option>
+                <option value="" disabled>Select\u2026</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </Select>
             </div>
-            <div className="flex-1 space-y-1">
+            <div className="flex-1 min-w-[140px] space-y-1">
               <label className="text-xs font-medium text-stone-600">Source Type</label>
               <Select
                 value={form.source_type}
@@ -313,17 +332,17 @@ export default function CarbonTransactions() {
               onChange={(e) => setForm({ ...form, emission_factor_id: e.target.value })}
               className="w-full"
             >
-              <option value="" disabled>Select…</option>
+              <option value="" disabled>Select\u2026</option>
               {sortedFactors.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name} — {f.factor_value} kg/{f.unit} ({f.source_type})
+                  {f.name} \u2014 {f.factor_value} kg/{f.unit} ({f.source_type})
                 </option>
               ))}
             </Select>
           </div>
 
-          <div className="flex gap-3">
-            <div className="flex-1 space-y-1">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[120px] space-y-1">
               <label className="text-xs font-medium text-stone-600">Quantity</label>
               <Input
                 required
@@ -336,8 +355,8 @@ export default function CarbonTransactions() {
                 className="w-full"
               />
             </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-xs font-medium text-stone-600">CO₂e Amount</label>
+            <div className="flex-1 min-w-[120px] space-y-1">
+              <label className="text-xs font-medium text-stone-600">CO&#8322;e Amount</label>
               <Input
                 required={autoCalc === false}
                 disabled={autoCalc !== false}
@@ -365,12 +384,10 @@ export default function CarbonTransactions() {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Add transaction"}</Button>
+            <Button type="submit" disabled={saving}>{saving ? "Saving\u2026" : "Add transaction"}</Button>
           </div>
         </form>
       </Dialog>
-
-      {toast && <Toast message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

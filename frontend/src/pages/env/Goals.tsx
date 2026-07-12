@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
-import { Button, Dialog, Input, Select, Toast } from "../../components/ui";
+import EmptyState from "../../components/EmptyState";
+import { Button, Dialog, Input, Select } from "../../components/ui";
+import { useToast } from "../../components/ToastProvider";
 
 const STATUSES = ["on_track", "at_risk", "overdue", "achieved"] as const;
 type Status = (typeof STATUSES)[number];
@@ -81,14 +83,13 @@ function GoalCard({
   deptName,
   onUpdated,
   onDelete,
-  notify,
 }: {
   goal: Goal;
   deptName: (id: number) => string;
   onUpdated: () => void;
   onDelete: (goal: Goal) => void;
-  notify: (message: string, tone: "green" | "red") => void;
 }) {
+  const { showToast } = useToast();
   const [value, setValue] = useState(String(goal.current_value));
   const [saving, setSaving] = useState(false);
 
@@ -106,10 +107,10 @@ function GoalCard({
     setSaving(true);
     try {
       await api.put(`/env/goals/${goal.id}`, { current_value: Number(value) });
-      notify("Progress updated.", "green");
+      showToast("Progress updated.", "green");
       onUpdated();
     } catch (err) {
-      notify(errorMessage(err), "red");
+      showToast(errorMessage(err), "red");
     } finally {
       setSaving(false);
     }
@@ -165,12 +166,16 @@ function GoalCard({
   );
 }
 
+function SkeletonBlock({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-stone-200 ${className}`} />;
+}
+
 export default function Goals() {
+  const { showToast } = useToast();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState<{ message: string; tone: "green" | "red" } | null>(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -181,9 +186,6 @@ export default function Goals() {
     return (id: number) => map.get(id) ?? `#${id}`;
   }, [departments]);
 
-  function notify(message: string, tone: "green" | "red") {
-    setToast({ message, tone });
-  }
 
   useEffect(() => {
     api.get<Department[]>("/departments").then((r) => setDepartments(r.data)).catch(() => {});
@@ -228,11 +230,11 @@ export default function Goals() {
         status: form.status,
       };
       await api.post("/env/goals", payload);
-      notify("Goal added.", "green");
+      showToast("Goal added.", "green");
       setDialogOpen(false);
       load();
     } catch (err) {
-      notify(errorMessage(err), "red");
+      showToast(errorMessage(err), "red");
     } finally {
       setSaving(false);
     }
@@ -242,10 +244,10 @@ export default function Goals() {
     if (!confirm(`Delete goal "${goal.metric}"?`)) return;
     try {
       await api.delete(`/env/goals/${goal.id}`);
-      notify("Goal deleted.", "green");
+      showToast("Goal deleted.", "green");
       load();
     } catch (err) {
-      notify(errorMessage(err), "red");
+      showToast(errorMessage(err), "red");
     }
   }
 
@@ -267,13 +269,18 @@ export default function Goals() {
       )}
 
       {loading ? (
-        <div className="rounded-xl border border-stone-200 bg-white p-10 text-center text-stone-400 shadow-sm">
-          Loading goals…
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm space-y-3">
+          <SkeletonBlock className="h-4 w-32" />
+          {[0, 1, 2].map((i) => <SkeletonBlock key={i} className="h-28 w-full" />)}
         </div>
       ) : sortedGoals.length === 0 ? (
-        <div className="rounded-xl border border-stone-200 bg-white p-10 text-center text-stone-400 shadow-sm">
-          No goals set yet — add one to start tracking progress.
-        </div>
+        <EmptyState
+          icon="🎯"
+          title="No goals set yet"
+          description="Add an environmental goal to start tracking your team's sustainability progress."
+          actionLabel="+ Add Goal"
+          onAction={openAdd}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {sortedGoals.map((goal) => (
@@ -283,7 +290,6 @@ export default function Goals() {
               deptName={deptName}
               onUpdated={load}
               onDelete={remove}
-              notify={notify}
             />
           ))}
         </div>
@@ -373,7 +379,6 @@ export default function Goals() {
         </form>
       </Dialog>
 
-      {toast && <Toast message={toast.message} tone={toast.tone} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

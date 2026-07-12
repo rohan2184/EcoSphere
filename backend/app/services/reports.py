@@ -1,13 +1,150 @@
 """
-Reports service for Social and Gamification reporting module.
+Reports service — Social, Gamification, Governance and Environmental.
+Exposes ReportFilters, build_report, to_csv, to_xlsx, to_pdf for the router.
 """
 
+import csv
+import io
+from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.auth import User
+
+
+# ---------------------------------------------------------------------------
+# ReportFilters — shared filter bag used by router → build_report
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ReportFilters:
+    module: str = "summary"
+    department_id: Optional[int] = None
+    employee_id: Optional[int] = None
+    challenge_id: Optional[int] = None
+    category_id: Optional[int] = None
+    esg_category: Optional[str] = None
+    date_from: Optional[date] = None
+    date_to: Optional[date] = None
+
+
+# ---------------------------------------------------------------------------
+# build_report — dispatches to the right sub-service
+# ---------------------------------------------------------------------------
+
+def build_report(db: Session, filters: ReportFilters) -> tuple[list[str], list[dict]]:
+    """Return (column_names, rows) for the requested module."""
+    m = filters.module.lower()
+
+    if m == "social":
+        data = get_social_report(
+            db,
+            department_id=filters.department_id,
+            date_from=filters.date_from,
+            date_to=filters.date_to,
+            employee_id=filters.employee_id,
+        )
+        # Flatten top-level scalars + activity breakdown rows
+        scalars = {k: v for k, v in data.items() if k != "activities"}
+        rows = [{**scalars, **act} for act in data.get("activities", [])] or [scalars]
+        cols = list(rows[0].keys()) if rows else []
+        return cols, rows
+
+    if m == "gamification":
+        data = get_gamification_report(
+            db,
+            department_id=filters.department_id,
+            date_from=filters.date_from,
+            date_to=filters.date_to,
+            employee_id=filters.employee_id,
+            challenge_id=filters.challenge_id,
+        )
+        scalars = {k: v for k, v in data.items() if k != "challenges"}
+        rows = [{**scalars, **ch} for ch in data.get("challenges", [])] or [scalars]
+        cols = list(rows[0].keys()) if rows else []
+        return cols, rows
+
+    if m == "env":
+        from app.services.emissions import get_environmental_report
+        data = get_environmental_report(
+            db,
+            department_id=filters.department_id,
+            date_from=filters.date_from,
+            date_to=filters.date_to,
+        )
+        # Export the flat transaction rows for CSV; include summary as header row
+        txns = data.get("transactions", [])
+        if txns:
+            cols = list(txns[0].keys())
+            return cols, txns
+        # Fallback: summary-only row
+        summary = data.get("summary", {})
+        return list(summary.keys()), [summary]
+
+    if m in ("governance", "summary"):
+        # Stub — governance report not yet implemented as a flat table
+        return ["module", "status"], [{"module": m, "status": "no_data"}]
+
+    raise ValueError(f"Unknown report module '{filters.module}'. Expected: env, social, gamification, governance, summary.")
+
+
+# ---------------------------------------------------------------------------
+# Export helpers
+# ---------------------------------------------------------------------------
+
+def to_csv(columns: list[str], rows: list[dict[str, Any]]) -> bytes:
+    """Serialise rows to UTF-8 CSV bytes."""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buf.getvalue().encode("utf-8")
+
+
+def to_xlsx(columns: list[str], rows: list[dict[str, Any]]) -> bytes:
+    """Serialise rows to xlsx. Falls back to csv if openpyxl is unavailable."""
+    try:
+        import openpyxl  # type: ignore
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(columns)
+        for row in rows:
+            ws.append([row.get(c) for c in columns])
+        buf = io.BytesIO()
+        wb.save(buf)
+        return buf.getvalue()
+    except ImportError:
+        # Graceful degradation: return CSV with xlsx mime-type header already set by caller
+        return to_csv(columns, rows)
+
+
+def to_pdf(columns: list[str], rows: list[dict[str, Any]], title: str = "Report") -> bytes:
+    """Serialise rows to PDF. Falls back to csv if reportlab is unavailable."""
+    try:
+        from reportlab.lib.pagesizes import A4  # type: ignore
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4)
+        styles = getSampleStyleSheet()
+        elements = [Paragraph(title, styles["Title"])]
+        data = [columns] + [[str(row.get(c, "")) for c in columns] for row in rows]
+        t = Table(data)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#064e3b")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+        ]))
+        elements.append(t)
+        doc.build(elements)
+        return buf.getvalue()
+    except ImportError:
+        return to_csv(columns, rows)
+
 from app.models.social import CSRActivity, EmployeeParticipation, ApprovalStatus
 from app.models.gamification import (
     Challenge,
