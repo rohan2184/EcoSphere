@@ -17,7 +17,6 @@ from app.schemas.notifications import NotificationOut, NotificationUnreadCount
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
-
 @router.get("", response_model=list[NotificationOut])
 def list_notifications(
     unread_only: bool = Query(False),
