@@ -1,0 +1,54 @@
+import { NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "../lib/auth";
+
+const nav = [
+  { to: "/dashboard", label: "Dashboard", icon: "◉" },
+  { to: "/governance/policies", label: "Policies", icon: "§" },
+  { to: "/governance/audits", label: "Audits", icon: "✓" },
+  { to: "/governance/compliance", label: "Compliance", icon: "⚠" },
+  { to: "/reports", label: "Reports", icon: "▤" },
+  // Person A/B: append your module pages here (env, social, gamification)
+];
+
+export default function Layout() {
+  const { user, logout } = useAuth();
+  return (
+    <div className="flex min-h-screen">
+      <aside className="w-56 shrink-0 bg-emerald-950 text-emerald-50 flex flex-col">
+        <div className="px-5 py-5 text-lg font-bold tracking-tight">
+          🌿 EcoSphere
+          <div className="text-[11px] font-normal text-emerald-300/80">ESG Management</div>
+        </div>
+        <nav className="flex-1 px-2 space-y-0.5">
+          {nav.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${
+                  isActive ? "bg-emerald-800 font-medium" : "text-emerald-200/90 hover:bg-emerald-900"
+                }`
+              }
+            >
+              <span className="w-4 text-center">{item.icon}</span>
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="px-5 py-4 text-xs text-emerald-300/70 border-t border-emerald-900">
+          {user ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate">{user.name} · {user.role}</span>
+              <button onClick={logout} className="underline hover:text-white">Logout</button>
+            </div>
+          ) : (
+            <span>Not signed in (dev)</span>
+          )}
+        </div>
+      </aside>
+      <main className="flex-1 min-w-0 p-6 lg:p-8">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
