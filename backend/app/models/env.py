@@ -62,3 +62,26 @@ class EnvironmentalGoal(Base, TimestampMixin):
     status = Column(String)
 
     department = relationship("Department")
+
+
+class OperationRecord(Base, TimestampMixin):
+    """Upstream operation that (optionally) auto-generates a CarbonTransaction.
+
+    Represents a real business event — a purchase, manufacturing run,
+    expense claim, or fleet trip — that is the true source of emissions.
+    When Settings.auto_emission_calc is enabled, creating an OperationRecord
+    automatically resolves the best-fit EmissionFactor and spawns a linked
+    CarbonTransaction with auto_generated=True and
+    source_ref="operation:<id>".
+    """
+    __tablename__ = "operation_records"
+
+    op_type = Column(Enum(SourceType), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("product_esg_profiles.id"), nullable=True)
+    quantity = Column(Float, nullable=False)          # physical units (kg, liters, kWh…)
+    amount = Column(Float, nullable=False)            # monetary or physical value
+    date = Column(Date, nullable=False)
+
+    department = relationship("Department")
+    product = relationship("ProductESGProfile")

@@ -22,8 +22,11 @@ from app.models import (
     Challenge, ChallengeParticipation, ChallengeStatus, Badge, UserBadge,
     Reward, RewardRedemption, Notification,
     ESGPolicy, PolicyAcknowledgement, Audit, ComplianceIssue,
+    OperationRecord,
 )
 from app.models.governance import IssueSeverity, IssueStatus
+from app.schemas.env import OperationRecordCreate
+from app.services.emissions import create_operation_record
 
 DEFAULT_PASSWORD = "Password123!"
 
@@ -32,7 +35,7 @@ DEFAULT_PASSWORD = "Password123!"
 _TRUNCATE_ORDER = [
     RewardRedemption, UserBadge, Notification, ChallengeParticipation,
     EmployeeParticipation, PolicyAcknowledgement, ComplianceIssue,
-    CarbonTransaction, EnvironmentalGoal, ProductESGProfile, DiversityMetric,
+    OperationRecord, CarbonTransaction, EnvironmentalGoal, ProductESGProfile, DiversityMetric,
     Audit, Challenge, Badge, Reward, CSRActivity, ESGPolicy, EmissionFactor,
     Category, User, Department,
 ]
@@ -52,6 +55,9 @@ def _recent_months(n: int) -> list[date]:
 
 
 def _truncate(db) -> None:
+    from sqlalchemy import text
+    db.execute(text("UPDATE departments SET head_user_id = NULL"))
+    db.commit()
     for model in _TRUNCATE_ORDER:
         db.query(model).delete()
     db.commit()
@@ -63,12 +69,12 @@ def seed() -> None:
     try:
         _truncate(db)
 
-        # ── Settings singleton (upsert; leave auto-calc OFF for the Gate 2 demo)
+        # ── Settings singleton (turn auto-calc ON so OperationRecords generate txns)
         settings = db.query(Settings).first()
         if settings is None:
             settings = Settings()
             db.add(settings)
-        settings.auto_emission_calc = False
+        settings.auto_emission_calc = True
         settings.weight_env, settings.weight_social, settings.weight_gov = 40, 30, 30
         db.flush()
 
@@ -186,14 +192,48 @@ def seed() -> None:
         db.add_all(goals)
 
         # ── Products (ProductESGProfile) ───────────────────────────────────
-        db.add_all([
+        products = [
             ProductESGProfile(product_name="EcoWidget", category="hardware",
                               default_emission_factor_id=factors[0].id,
                               notes="Flagship low-carbon widget."),
             ProductESGProfile(product_name="GreenPack", category="packaging",
                               default_emission_factor_id=factors[1].id,
                               notes="Recycled packaging line."),
-        ])
+        ]
+        db.add_all(products)
+        db.flush()
+
+        # ── Operation Records (triggers auto CarbonTransaction) ────────────
+        ops_data = []
+        # Create 20 operations spread across the 6 months, departments, and op_types
+        for i in range(20):
+            month = months[i % len(months)]
+            dept = departments[i % len(departments)]
+            # Cycle through op_types and factors
+            op_type_choices = [
+                (SourceType.purchase, 100 + i * 10, factors[0].factor_value),
+                (SourceType.manufacturing, 50 + i * 5, factors[1].factor_value),
+                (SourceType.expense, 500 + i * 100, factors[2].factor_value),
+                (SourceType.fleet, 20 + i * 2, factors[3].factor_value)
+            ]
+            op_type, qty, _ = op_type_choices[i % 4]
+            product_id = products[i % 2].id if op_type in (SourceType.purchase, SourceType.manufacturing) else None
+            
+            ops_data.append(OperationRecordCreate(
+                op_type=op_type,
+                department_id=dept.id,
+                product_id=product_id,
+                quantity=qty,
+                amount=qty * 10.5, # Arbitrary amount
+                date=month,
+            ))
+            
+        operations_created = 0
+        for op_in in ops_data:
+            op, txn, warning = create_operation_record(db, op_in)
+            if op:
+                operations_created += 1
+
 
         # ── Social: CSR activities + participations + diversity ────────────
         csr = [
@@ -358,7 +398,8 @@ def seed() -> None:
             "departments": len(departments),
             "users": len(users),
             "emission_factors": len(factors),
-            "carbon_transactions": len(transactions),
+            "operation_records": operations_created,
+            "carbon_transactions": db.query(CarbonTransaction).count(),
             "environmental_goals": len(goals),
             "csr_activities": len(csr),
             "challenges": len(challenges),
