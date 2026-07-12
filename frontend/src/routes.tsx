@@ -9,6 +9,10 @@ import Policies from "./pages/governance/Policies";
 import Audits from "./pages/governance/Audits";
 import ComplianceIssues from "./pages/governance/ComplianceIssues";
 import Reports from "./pages/reports/Reports";
+import CSRActivityList from "./pages/social/CSRActivityList";
+import ChallengeList from "./pages/gamification/ChallengeList";
+import Leaderboard from "./pages/gamification/Leaderboard";
+import BadgesAndRewards from "./pages/gamification/BadgesAndRewards";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -36,7 +40,12 @@ export default function AppRoutes() {
         <Route path="governance/compliance" element={<ComplianceIssues />} />
         <Route path="reports" element={<Reports />} />
         {/* Person A: env module routes here */}
+        
         {/* Person B: social + gamification routes here */}
+        <Route path="social/csr-activities" element={<CSRActivityList />} />
+        <Route path="gamification/challenges" element={<ChallengeList />} />
+        <Route path="gamification/leaderboard" element={<Leaderboard />} />
+        <Route path="gamification/badges-rewards" element={<BadgesAndRewards />} />
       </Route>
     </Routes>
   );
