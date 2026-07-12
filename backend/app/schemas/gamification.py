@@ -91,3 +91,54 @@ class ChallengeParticipationOut(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+# ── Badge Schemas ────────────────────────────────────────────────────────────
+
+class BadgeOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    unlock_rule: dict
+    icon: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class UserBadgeOut(BaseModel):
+    id: int
+    user_id: int
+    badge_id: int
+    awarded_at: datetime
+    badge_name: Optional[str] = None  # populated via join in the router
+
+    model_config = {"from_attributes": True}
+
+
+# ── Reward Schemas ───────────────────────────────────────────────────────────
+
+class RewardOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    points_required: int
+    stock: int
+    status: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class RewardRedemptionOut(BaseModel):
+    id: int
+    user_id: int
+    reward_id: int
+    points_spent: int
+    redeemed_at: datetime
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
