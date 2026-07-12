@@ -1,11 +1,14 @@
-/**
- * CSR Activities — list, participate (employee), approve/reject participations (admin).
- */
-
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
+<<<<<<< HEAD
+import { useFakeRole } from "../../lib/fakeAuth";
+import { Button, Chip, Dialog, Input } from "../../components/ui";
+import EmptyState from "../../components/EmptyState";
+import { useToast } from "../../components/ToastProvider";
+=======
 import { useAuth } from "../../lib/auth";
 import { Button, Chip, Dialog, Input, Toast } from "../../components/ui";
+>>>>>>> e0040ca0994396c059dd7dcd9c2e8902103053a8
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -44,14 +47,17 @@ function statusTone(s: string): "green" | "amber" | "red" | "neutral" {
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export default function CSRActivityList() {
+<<<<<<< HEAD
+  const [role] = useFakeRole();
+  const { showToast } = useToast();
+  const isAdmin = role === "admin";
+=======
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+>>>>>>> e0040ca0994396c059dd7dcd9c2e8902103053a8
 
   const [activities, setActivities] = useState<CSRActivity[]>([]);
   const [loading, setLoading] = useState(true);
-
-  /* Toast state */
-  const [toast, setToast] = useState<{ msg: string; tone: "green" | "red" } | null>(null);
 
   /* Participate modal */
   const [participateFor, setParticipateFor] = useState<CSRActivity | null>(null);
@@ -71,11 +77,11 @@ export default function CSRActivityList() {
       const { data } = await api.get<CSRActivity[]>("/social/csr-activities");
       setActivities(data);
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     fetchActivities();
@@ -86,9 +92,6 @@ export default function CSRActivityList() {
   async function fetchParticipations(activityId: number) {
     setLoadingParts(true);
     try {
-      // NOTE: the backend GET /social/participations may not support
-      // ?csr_activity_id= filter yet — fetch all and filter client-side.
-      // TODO: ask backend team to add the query param for efficiency.
       const { data } = await api.get<Participation[]>("/social/participations");
       setParticipations(
         data.filter(
@@ -96,7 +99,7 @@ export default function CSRActivityList() {
         ),
       );
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setLoadingParts(false);
     }
@@ -112,11 +115,11 @@ export default function CSRActivityList() {
         csr_activity_id: participateFor.id,
         proof_file: proofFile || undefined,
       });
-      setToast({ msg: "Participation submitted!", tone: "green" });
+      showToast("Participation submitted successfully!", "green");
       setParticipateFor(null);
       setProofFile("");
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setSubmitting(false);
     }
@@ -129,11 +132,10 @@ export default function CSRActivityList() {
       await api.patch(`/social/participations/${participationId}/approve`, {
         approval_status: decision,
       });
-      setToast({ msg: `Participation ${decision}`, tone: decision === "approved" ? "green" : "red" });
-      // Refresh the participations list
+      showToast(`Participation ${decision} successfully!`, "green");
       if (reviewActivityId !== null) fetchParticipations(reviewActivityId);
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     }
   }
 
@@ -151,7 +153,11 @@ export default function CSRActivityList() {
       {loading ? (
         <p className="text-sm text-stone-400">Loading…</p>
       ) : activities.length === 0 ? (
-        <p className="text-sm text-stone-400">No CSR activities found.</p>
+        <EmptyState
+          icon="♻"
+          title="No CSR Activities"
+          description="There are currently no Corporate Social Responsibility activities listed."
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {activities.map((act) => (
@@ -208,7 +214,11 @@ export default function CSRActivityList() {
                       {loadingParts ? (
                         <p className="text-xs text-stone-400">Loading…</p>
                       ) : participations.length === 0 ? (
-                        <p className="text-xs text-stone-400">No pending participations.</p>
+                        <EmptyState
+                          icon="📋"
+                          title="No Pending Participations"
+                          description="No employees are currently pending review for this CSR activity."
+                        />
                       ) : (
                         participations.map((p) => (
                           <div
@@ -277,11 +287,6 @@ export default function CSRActivityList() {
           </div>
         </div>
       </Dialog>
-
-      {/* ── Toast ──────────────────────────────────────────────── */}
-      {toast && (
-        <Toast message={toast.msg} tone={toast.tone} onDismiss={() => setToast(null)} />
-      )}
     </div>
   );
 }

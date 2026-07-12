@@ -1,10 +1,7 @@
-/**
- * Leaderboard — ranks users by XP balance.
- */
-
 import { useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import EmptyState from "../../components/EmptyState";
 
 interface LeaderboardEntry {
   rank: number;
@@ -47,7 +44,11 @@ export default function Leaderboard() {
           {error}
         </div>
       ) : entries.length === 0 ? (
-        <p className="text-center text-sm text-stone-400">No users found.</p>
+        <EmptyState
+          icon="📊"
+          title="Leaderboard is Empty"
+          description="No user scores are currently available. Check back once users have completed some challenges!"
+        />
       ) : (
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-left text-sm whitespace-nowrap">

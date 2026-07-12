@@ -6,13 +6,16 @@ Wire into main.py with:
     app.include_router(gamification.router, prefix="/api")
 """
 
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, get_settings
+from app.core.deps import get_current_user, get_db, get_settings_stub
+from app.schemas.reports import GamificationReportOut
+from app.services.reports import get_gamification_report
 from app.models.auth import User
 from app.models.gamification import Badge, UserBadge
 from app.schemas.gamification import (
@@ -226,7 +229,7 @@ def approve_or_reject_participation(
     Returns 404 if the participation does not exist.
     """
     _require_admin(current_user)
-    settings = get_settings(db)
+    settings = get_settings_stub()
     try:
         return approve_challenge_participation(
             db,
@@ -340,3 +343,32 @@ def get_leaderboard(
         {"rank": idx + 1, "user_id": r.id, "name": r.name, "xp_balance": r.xp_balance or 0}
         for idx, r in enumerate(rows)
     ]
+
+
+@router.get("/report", response_model=GamificationReportOut)
+def gamification_report(
+    department_id: Optional[int] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    employee_id: Optional[int] = None,
+    challenge_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Generate Gamification module report with filters (Admin only).
+    """
+    if current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return get_gamification_report(
+        db,
+        department_id=department_id,
+        date_from=date_from,
+        date_to=date_to,
+        employee_id=employee_id,
+        challenge_id=challenge_id,
+    )
+

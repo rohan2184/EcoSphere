@@ -2,9 +2,13 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import NotificationBell from "./NotificationBell";
 
+<<<<<<< HEAD
+const nav = [
+=======
 type NavItem = { to: string; label: string; icon: string; roles?: string[] };
 
 const nav: NavItem[] = [
+>>>>>>> e0040ca0994396c059dd7dcd9c2e8902103053a8
   { to: "/dashboard", label: "Dashboard", icon: "◉" },
   { to: "/governance/policies", label: "Policies", icon: "§" },
   { to: "/governance/audits", label: "Audits", icon: "✓" },
