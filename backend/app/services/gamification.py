@@ -124,6 +124,44 @@ def transition_challenge_status(
     db.refresh(challenge)
     return challenge
 
+def delete_challenge(db: Session, challenge_id: int) -> bool:
+    challenge = get_challenge(db, challenge_id)
+    if challenge is None:
+        return False
+    db.delete(challenge)
+    db.commit()
+    return True
+
+# ── Badge CRUD ───────────────────────────────────────────────────────────────
+
+from app.schemas.gamification import BadgeCreate, BadgeUpdate
+from app.models.gamification import Badge
+
+def create_badge(db: Session, data: BadgeCreate) -> Badge:
+    badge = Badge(**data.model_dump())
+    db.add(badge)
+    db.commit()
+    db.refresh(badge)
+    return badge
+
+def update_badge(db: Session, badge_id: int, data: BadgeUpdate) -> Optional[Badge]:
+    badge = db.query(Badge).filter(Badge.id == badge_id).first()
+    if badge is None:
+        return None
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(badge, field, value)
+    db.commit()
+    db.refresh(badge)
+    return badge
+
+def delete_badge(db: Session, badge_id: int) -> bool:
+    badge = db.query(Badge).filter(Badge.id == badge_id).first()
+    if badge is None:
+        return False
+    db.delete(badge)
+    db.commit()
+    return True
+
 
 # ── Challenge Participation ──────────────────────────────────────────────────
 

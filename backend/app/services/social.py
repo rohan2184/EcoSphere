@@ -59,6 +59,15 @@ def update_csr_activity(
     return activity
 
 
+def delete_csr_activity(db: Session, activity_id: int) -> bool:
+    activity = get_csr_activity(db, activity_id)
+    if not activity:
+        return False
+    db.delete(activity)
+    db.commit()
+    return True
+
+
 # ── Employee Participation ───────────────────────────────────────────────────
 
 def submit_participation(
@@ -225,3 +234,15 @@ def delete_diversity_metric(db: Session, id: int) -> bool:
     db.delete(metric)
     db.commit()
     return True
+
+from sqlalchemy import func
+
+def get_training_aggregates(db: Session) -> dict:
+    result = db.query(
+        func.avg(DiversityMetric.avg_training_hours).label('avg_hours'),
+        func.avg(DiversityMetric.training_completion_pct).label('avg_pct')
+    ).first()
+    return {
+        "avg_training_hours": result.avg_hours or 0.0,
+        "training_completion_pct": result.avg_pct or 0.0
+    }

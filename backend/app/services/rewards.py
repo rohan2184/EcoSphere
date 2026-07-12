@@ -31,6 +31,26 @@ def list_rewards(
         query = query.filter(Reward.stock > 0)
     return query.all()
 
+from app.schemas.gamification import RewardUpdate
+
+def update_reward(db: Session, reward_id: int, data: RewardUpdate) -> Optional[Reward]:
+    reward = db.query(Reward).filter(Reward.id == reward_id).first()
+    if reward is None:
+        return None
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(reward, field, value)
+    db.commit()
+    db.refresh(reward)
+    return reward
+
+def delete_reward(db: Session, reward_id: int) -> bool:
+    reward = db.query(Reward).filter(Reward.id == reward_id).first()
+    if reward is None:
+        return False
+    db.delete(reward)
+    db.commit()
+    return True
+
 
 def redeem_reward(
     db: Session,

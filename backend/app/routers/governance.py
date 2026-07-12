@@ -116,12 +116,14 @@ def list_acknowledgements(policy_id: int, db: Session = Depends(get_db)):
 
 # ---- Audits ----
 @router.get("/audits", response_model=list[AuditOut])
-def list_audits(department_id: int | None = None, result: str | None = None, db: Session = Depends(get_db)):
+def list_audits(department_id: int | None = None, result: str | None = None, status: str | None = None, db: Session = Depends(get_db)):
     q = db.query(Audit)
     if department_id:
         q = q.filter(Audit.department_id == department_id)
     if result:
         q = q.filter(Audit.result == result)
+    if status:
+        q = q.filter(Audit.status == status)
     return q.order_by(Audit.id).all()
 
 @router.post("/audits", response_model=AuditOut, status_code=201)

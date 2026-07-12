@@ -106,3 +106,7 @@ class DiversityMetricOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+class TrainingAggregateOut(BaseModel):
+    avg_training_hours: float
+    training_completion_pct: float
