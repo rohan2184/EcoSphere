@@ -250,3 +250,90 @@ def get_environmental_report(db, department_id=None, date_from=None, date_to=Non
         "goals": get_goals_progress(db, department_id),
         "transactions": transactions,
     }
+
+
+# ---------------------------------------------------------------------------
+# OperationRecord workflow
+# ---------------------------------------------------------------------------
+
+def resolve_emission_factor(db: Session, operation) -> "EmissionFactor | None":
+    """Find the best EmissionFactor for an OperationRecord.
+
+    Resolution order:
+    1. If operation.product_id is set, use that ProductESGProfile's
+       default_emission_factor_id (if the factor is active and exists).
+    2. Otherwise find the first *active* EmissionFactor whose source_type
+       matches operation.op_type.
+    3. Return None if nothing resolves (caller decides what to do).
+    """
+    from app.models.env import ProductESGProfile  # avoid circular at module level
+
+    if operation.product_id is not None:
+        product = (
+            db.query(ProductESGProfile)
+            .filter(ProductESGProfile.id == operation.product_id)
+            .first()
+        )
+        if product and product.default_emission_factor_id:
+            factor = (
+                db.query(EmissionFactor)
+                .filter(
+                    EmissionFactor.id == product.default_emission_factor_id,
+                    EmissionFactor.status == "active",
+                )
+                .first()
+            )
+            if factor:
+                return factor
+
+    # Fallback: match on source_type (op_type shares the same SourceType enum)
+    return (
+        db.query(EmissionFactor)
+        .filter(
+            EmissionFactor.source_type == operation.op_type,
+            EmissionFactor.status == "active",
+        )
+        .first()
+    )
+
+
+def create_operation_record(db: Session, data) -> tuple:
+    """Create an OperationRecord and, if auto_emission_calc is on, a linked
+    CarbonTransaction.
+
+    Returns
+    -------
+    (OperationRecord, CarbonTransaction | None, warning: str | None)
+    """
+    from app.models.env import OperationRecord
+    from app.schemas.env import CarbonTransactionCreate
+
+    # 1. Persist the OperationRecord first so it has an id.
+    op = OperationRecord(**data.model_dump())
+    db.add(op)
+    db.commit()
+    db.refresh(op)
+
+    # 2. Conditionally generate CarbonTransaction.
+    settings = db.query(Settings).first()
+    if not (settings and settings.auto_emission_calc):
+        return op, None, None
+
+    factor = resolve_emission_factor(db, op)
+    if factor is None:
+        return op, None, (
+            f"No active EmissionFactor found for op_type='{op.op_type.value}' "
+            f"(product_id={op.product_id}). CarbonTransaction was NOT created."
+        )
+
+    txn_in = CarbonTransactionCreate(
+        department_id=op.department_id,
+        source_type=op.op_type,
+        source_ref=f"operation:{op.id}",
+        quantity=op.quantity,
+        emission_factor_id=factor.id,
+        co2e_amount=None,   # will be computed server-side by create_carbon_transaction
+        date=op.date,
+    )
+    txn = create_carbon_transaction(db, txn_in)
+    return op, txn, None
