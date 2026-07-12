@@ -10,6 +10,8 @@ export interface User {
   email: string;
   role: "admin" | "manager" | "employee";
   department_id: number | null;
+  points_balance?: number;
+  xp_balance?: number;
 }
 
 interface AuthContextValue {

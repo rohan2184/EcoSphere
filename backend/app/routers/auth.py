@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35
 """
 Auth endpoints (plan §8: Person A) — register, login, me.
 
@@ -57,6 +60,7 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(current_user: dict = Depends(get_current_user)):
     return UserOut(**current_user)
+<<<<<<< HEAD
 =======
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -104,3 +108,5 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 >>>>>>> 298a2f4ae1efa6dee0d700286a67fbaa62061142
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35

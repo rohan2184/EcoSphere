@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -28,6 +31,7 @@ class UserOut(BaseModel):
     email: str
     role: str
     department_id: int | None = None
+<<<<<<< HEAD
 =======
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -62,3 +66,5 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserOut
 >>>>>>> 298a2f4ae1efa6dee0d700286a67fbaa62061142
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35

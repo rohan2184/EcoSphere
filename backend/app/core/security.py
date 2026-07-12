@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35
 """
 Password hashing + JWT helpers (plan §8: Person A).
 
@@ -38,6 +41,7 @@ def create_access_token(user_id: int, role: str) -> str:
 def decode_access_token(token: str) -> dict:
     """Return the token payload. Raises jose.JWTError on invalid/expired token."""
     return jwt.decode(token, settings.JWT_SECRET, algorithms=[ALGORITHM])
+<<<<<<< HEAD
 =======
 from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
@@ -75,3 +79,5 @@ def decode_access_token(token: str) -> dict:
             headers={"WWW-Authenticate": "Bearer"},
         )
 >>>>>>> 298a2f4ae1efa6dee0d700286a67fbaa62061142
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35

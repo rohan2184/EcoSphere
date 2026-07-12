@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35
 """
 Shared FastAPI dependencies — DB session, real JWT auth, Settings singleton.
 """
@@ -6,16 +9,19 @@ Shared FastAPI dependencies — DB session, real JWT auth, Settings singleton.
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
+<<<<<<< HEAD
 =======
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 >>>>>>> 298a2f4ae1efa6dee0d700286a67fbaa62061142
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35
 from sqlalchemy.orm import Session
-from app.core.database import get_db
-from app.core.security import decode_access_token
-from app.models.auth import User
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35
 from app.core.database import get_db  # single get_db, re-exported (plan §1 fix #3)
 from app.core.security import decode_access_token
 from app.models.auth import User
@@ -85,6 +91,7 @@ def get_settings(db: Session) -> Settings:
         db.commit()
         db.refresh(row)
     return row
+<<<<<<< HEAD
 =======
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -120,3 +127,5 @@ def require_role(*allowed_roles):
         return current_user
     return role_checker
 >>>>>>> 298a2f4ae1efa6dee0d700286a67fbaa62061142
+=======
+>>>>>>> 7cd57919805015ea0dc69f6bee14f95a998fbb35
