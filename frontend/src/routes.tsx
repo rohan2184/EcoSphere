@@ -10,13 +10,13 @@ import Policies from "./pages/governance/Policies";
 import Audits from "./pages/governance/Audits";
 import ComplianceIssues from "./pages/governance/ComplianceIssues";
 import Reports from "./pages/reports/Reports";
+import EmissionFactors from "./pages/env/EmissionFactors";
+import CarbonTransactions from "./pages/env/CarbonTransactions";
 import CSRActivityList from "./pages/social/CSRActivityList";
 import ChallengeList from "./pages/gamification/ChallengeList";
 import Leaderboard from "./pages/gamification/Leaderboard";
 import BadgesAndRewards from "./pages/gamification/BadgesAndRewards";
 import EmissionsDashboard from "./pages/env/EmissionsDashboard";
-import EmissionFactors from "./pages/env/EmissionFactors";
-import CarbonTransactions from "./pages/env/CarbonTransactions";
 import Goals from "./pages/env/Goals";
 
 function Protected({ children }: { children: React.ReactNode }) {

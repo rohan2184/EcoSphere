@@ -1,217 +1,274 @@
-"""Report dataset builders + CSV/Excel/PDF exporters (plan §8, PDF brief §7).
-
-Every builder returns (columns, rows) where rows are plain dicts keyed by the
-columns — one shape feeds the JSON response and all three export formats.
 """
-import csv
-import io
-from datetime import date
+Reports service for Social and Gamification reporting module.
+"""
 
+from datetime import date
+from typing import Optional
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import (
-    Department, User, Category,
-    CarbonTransaction, EnvironmentalGoal, EmissionFactor,
-    CSRActivity, EmployeeParticipation, DiversityMetric,
-    Challenge, ChallengeParticipation,
-    ESGPolicy, PolicyAcknowledgement, Audit, ComplianceIssue,
+from app.models.auth import User
+from app.models.social import CSRActivity, EmployeeParticipation, ApprovalStatus
+from app.models.gamification import (
+    Challenge,
+    ChallengeParticipation,
+    ChallengeStatus,
+    UserBadge,
+    RewardRedemption,
 )
-from app.services import scoring
 
 
-class ReportFilters:
-    def __init__(self, module: str = "summary", department_id: int | None = None,
-                 employee_id: int | None = None, challenge_id: int | None = None,
-                 category_id: int | None = None, esg_category: str | None = None,
-                 date_from: date | None = None, date_to: date | None = None):
-        # esg_category (E/S/G) is an alias for module, per the brief's filter list
-        aliases = {"e": "env", "environmental": "env", "s": "social",
-                   "g": "governance", "governance": "governance", "social": "social"}
-        if esg_category and module == "summary":
-            module = aliases.get(esg_category.lower(), module)
-        self.module = module
-        self.department_id = department_id
-        self.employee_id = employee_id
-        self.challenge_id = challenge_id
-        self.category_id = category_id
-        self.date_from = date_from
-        self.date_to = date_to
+def get_social_report(
+    db: Session,
+    department_id: Optional[int] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    employee_id: Optional[int] = None,
+) -> dict:
+    # 1. Total Org-wide CSR Activities
+    total_csr_activities = db.query(CSRActivity).count()
 
+    # 2. Scope participations
+    query = db.query(EmployeeParticipation).join(User, EmployeeParticipation.user_id == User.id)
+    if department_id is not None:
+        query = query.filter(User.department_id == department_id)
+    if employee_id is not None:
+        query = query.filter(EmployeeParticipation.user_id == employee_id)
+    if date_from is not None:
+        query = query.filter(EmployeeParticipation.completion_date >= date_from)
+    if date_to is not None:
+        query = query.filter(EmployeeParticipation.completion_date <= date_to)
 
-def _date_range(q, column, f: ReportFilters):
-    if f.date_from:
-        q = q.filter(column >= f.date_from)
-    if f.date_to:
-        q = q.filter(column <= f.date_to)
-    return q
+    total_participations = query.count()
+    approved_participations = query.filter(
+        EmployeeParticipation.approval_status == ApprovalStatus.approved
+    ).count()
+    pending_participations = query.filter(
+        EmployeeParticipation.approval_status == ApprovalStatus.pending
+    ).count()
+    rejected_participations = query.filter(
+        EmployeeParticipation.approval_status == ApprovalStatus.rejected
+    ).count()
 
-
-def _env_rows(db: Session, f: ReportFilters):
-    q = (
-        db.query(CarbonTransaction, Department.name, EmissionFactor.name)
-        .join(Department, Department.id == CarbonTransaction.department_id)
-        .outerjoin(EmissionFactor, EmissionFactor.id == CarbonTransaction.emission_factor_id)
+    # 3. Total Points Awarded in Scope (Approved only)
+    points_sum_query = db.query(
+        func.sum(EmployeeParticipation.points_earned)
+    ).select_from(EmployeeParticipation).join(User, EmployeeParticipation.user_id == User.id)
+    if department_id is not None:
+        points_sum_query = points_sum_query.filter(User.department_id == department_id)
+    if employee_id is not None:
+        points_sum_query = points_sum_query.filter(EmployeeParticipation.user_id == employee_id)
+    if date_from is not None:
+        points_sum_query = points_sum_query.filter(EmployeeParticipation.completion_date >= date_from)
+    if date_to is not None:
+        points_sum_query = points_sum_query.filter(EmployeeParticipation.completion_date <= date_to)
+    points_sum_query = points_sum_query.filter(
+        EmployeeParticipation.approval_status == ApprovalStatus.approved
     )
-    if f.department_id:
-        q = q.filter(CarbonTransaction.department_id == f.department_id)
-    q = _date_range(q, CarbonTransaction.date, f)
-    columns = ["id", "date", "department", "source_type", "source_ref",
-               "quantity", "emission_factor", "co2e_kg", "auto_generated"]
-    rows = [
-        {"id": t.id, "date": t.date.isoformat(), "department": dept,
-         "source_type": t.source_type.value, "source_ref": t.source_ref,
-         "quantity": t.quantity, "emission_factor": factor,
-         "co2e_kg": t.co2e_amount, "auto_generated": t.auto_generated}
-        for t, dept, factor in q.order_by(CarbonTransaction.date).all()
-    ]
-    return columns, rows
+    total_points_awarded = points_sum_query.scalar() or 0
 
+    # 4. Participation Rate = approved / total employees in scope
+    emp_query = db.query(User).filter(User.is_active == True)  # noqa: E712
+    if department_id is not None:
+        emp_query = emp_query.filter(User.department_id == department_id)
+    total_employees = emp_query.count()
 
-def _social_rows(db: Session, f: ReportFilters):
-    q = (
-        db.query(EmployeeParticipation, User.name, Department.name, CSRActivity.title)
-        .join(User, User.id == EmployeeParticipation.user_id)
-        .outerjoin(Department, Department.id == User.department_id)
-        .join(CSRActivity, CSRActivity.id == EmployeeParticipation.csr_activity_id)
+    participation_rate = (
+        float(approved_participations) / total_employees if total_employees > 0 else 0.0
     )
-    if f.department_id:
-        q = q.filter(User.department_id == f.department_id)
-    if f.employee_id:
-        q = q.filter(EmployeeParticipation.user_id == f.employee_id)
-    if f.category_id:
-        q = q.filter(CSRActivity.category_id == f.category_id)
-    q = _date_range(q, EmployeeParticipation.completion_date, f)
-    columns = ["id", "employee", "department", "activity", "approval_status",
-               "points_earned", "completion_date"]
-    rows = [
-        {"id": p.id, "employee": user, "department": dept, "activity": activity,
-         "approval_status": p.approval_status.value, "points_earned": p.points_earned,
-         "completion_date": p.completion_date.isoformat() if p.completion_date else None}
-        for p, user, dept, activity in q.order_by(EmployeeParticipation.id).all()
-    ]
-    return columns, rows
+
+    # 5. Activity Breakdown
+    all_activities = db.query(CSRActivity).all()
+    activity_breakdown = []
+    for act in all_activities:
+        act_query = db.query(EmployeeParticipation).join(
+            User, EmployeeParticipation.user_id == User.id
+        ).filter(EmployeeParticipation.csr_activity_id == act.id)
+        if department_id is not None:
+            act_query = act_query.filter(User.department_id == department_id)
+        if employee_id is not None:
+            act_query = act_query.filter(EmployeeParticipation.user_id == employee_id)
+        if date_from is not None:
+            act_query = act_query.filter(EmployeeParticipation.completion_date >= date_from)
+        if date_to is not None:
+            act_query = act_query.filter(EmployeeParticipation.completion_date <= date_to)
+
+        p_count = act_query.count()
+        app_count = act_query.filter(
+            EmployeeParticipation.approval_status == ApprovalStatus.approved
+        ).count()
+        app_rate = float(app_count) / p_count if p_count > 0 else 0.0
+
+        activity_breakdown.append(
+            {
+                "activity_title": act.title,
+                "participant_count": p_count,
+                "approval_rate": app_rate,
+            }
+        )
+
+    return {
+        "total_csr_activities": total_csr_activities,
+        "total_participations": total_participations,
+        "approved_participations": approved_participations,
+        "pending_participations": pending_participations,
+        "rejected_participations": rejected_participations,
+        "total_points_awarded": total_points_awarded,
+        "participation_rate": participation_rate,
+        "activities": activity_breakdown,
+    }
 
 
-def _gamification_rows(db: Session, f: ReportFilters):
-    q = (
-        db.query(ChallengeParticipation, User.name, Department.name, Challenge.title)
-        .join(User, User.id == ChallengeParticipation.user_id)
-        .outerjoin(Department, Department.id == User.department_id)
-        .join(Challenge, Challenge.id == ChallengeParticipation.challenge_id)
+def get_gamification_report(
+    db: Session,
+    department_id: Optional[int] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    employee_id: Optional[int] = None,
+    challenge_id: Optional[int] = None,
+) -> dict:
+    # 1. Challenge statistics
+    total_challenges = db.query(Challenge).count()
+    active_challenges = db.query(Challenge).filter(
+        Challenge.status == ChallengeStatus.active
+    ).count()
+    completed_challenges = db.query(Challenge).filter(
+        Challenge.status == ChallengeStatus.completed
+    ).count()
+
+    # 2. Challenge Participations in Scope
+    cp_query = db.query(ChallengeParticipation).join(
+        User, ChallengeParticipation.user_id == User.id
     )
-    if f.department_id:
-        q = q.filter(User.department_id == f.department_id)
-    if f.employee_id:
-        q = q.filter(ChallengeParticipation.user_id == f.employee_id)
-    if f.challenge_id:
-        q = q.filter(ChallengeParticipation.challenge_id == f.challenge_id)
-    columns = ["id", "employee", "department", "challenge", "progress_pct",
-               "approval_status", "xp_awarded"]
-    rows = [
-        {"id": p.id, "employee": user, "department": dept, "challenge": challenge,
-         "progress_pct": p.progress, "approval_status": p.approval_status.value,
-         "xp_awarded": p.xp_awarded}
-        for p, user, dept, challenge in q.order_by(ChallengeParticipation.id).all()
-    ]
-    return columns, rows
+    if department_id is not None:
+        cp_query = cp_query.filter(User.department_id == department_id)
+    if employee_id is not None:
+        cp_query = cp_query.filter(ChallengeParticipation.user_id == employee_id)
+    if challenge_id is not None:
+        cp_query = cp_query.filter(ChallengeParticipation.challenge_id == challenge_id)
+    if date_from is not None:
+        cp_query = cp_query.filter(ChallengeParticipation.created_at >= date_from)
+    if date_to is not None:
+        cp_query = cp_query.filter(ChallengeParticipation.created_at <= date_to)
 
+    total_participations = cp_query.count()
 
-def _governance_rows(db: Session, f: ReportFilters):
-    q = (
-        db.query(ComplianceIssue, Audit.title, Department.name, User.name)
-        .join(Audit, Audit.id == ComplianceIssue.audit_id)
-        .outerjoin(Department, Department.id == Audit.department_id)
-        .join(User, User.id == ComplianceIssue.owner_id)
+    # 3. XP Awarded in Scope (Approved only)
+    xp_query = db.query(func.sum(ChallengeParticipation.xp_awarded)).select_from(
+        ChallengeParticipation
+    ).join(User, ChallengeParticipation.user_id == User.id)
+    if department_id is not None:
+        xp_query = xp_query.filter(User.department_id == department_id)
+    if employee_id is not None:
+        xp_query = xp_query.filter(ChallengeParticipation.user_id == employee_id)
+    if challenge_id is not None:
+        xp_query = xp_query.filter(ChallengeParticipation.challenge_id == challenge_id)
+    if date_from is not None:
+        xp_query = xp_query.filter(ChallengeParticipation.created_at >= date_from)
+    if date_to is not None:
+        xp_query = xp_query.filter(ChallengeParticipation.created_at <= date_to)
+    xp_query = xp_query.filter(
+        ChallengeParticipation.approval_status == ApprovalStatus.approved
     )
-    if f.department_id:
-        q = q.filter(Audit.department_id == f.department_id)
-    if f.employee_id:
-        q = q.filter(ComplianceIssue.owner_id == f.employee_id)
-    q = _date_range(q, ComplianceIssue.due_date, f)
-    columns = ["id", "audit", "department", "severity", "description", "owner",
-               "due_date", "status", "is_overdue"]
-    rows = [
-        {"id": i.id, "audit": audit, "department": dept, "severity": i.severity.value,
-         "description": i.description, "owner": owner, "due_date": i.due_date.isoformat(),
-         "status": i.status.value, "is_overdue": i.is_overdue}
-        for i, audit, dept, owner in q.order_by(ComplianceIssue.due_date).all()
-    ]
-    return columns, rows
+    total_xp_awarded = xp_query.scalar() or 0
 
+    # 4. Badges Unlocked in Scope
+    badge_query = db.query(UserBadge).join(User, UserBadge.user_id == User.id)
+    if department_id is not None:
+        badge_query = badge_query.filter(User.department_id == department_id)
+    if employee_id is not None:
+        badge_query = badge_query.filter(UserBadge.user_id == employee_id)
+    if date_from is not None:
+        badge_query = badge_query.filter(UserBadge.awarded_at >= date_from)
+    if date_to is not None:
+        badge_query = badge_query.filter(UserBadge.awarded_at <= date_to)
+    total_badges_unlocked = badge_query.count()
 
-def _summary_rows(db: Session, f: ReportFilters):
-    scores = scoring.all_department_scores(db)
-    if f.department_id:
-        scores = [s for s in scores if s["department_id"] == f.department_id]
-    columns = ["department_id", "department_name", "employee_count",
-               "environmental_score", "social_score", "governance_score", "total_score"]
-    return columns, scores
+    # 5. Reward Redemptions in Scope
+    redemption_query = db.query(RewardRedemption).join(
+        User, RewardRedemption.user_id == User.id
+    )
+    if department_id is not None:
+        redemption_query = redemption_query.filter(User.department_id == department_id)
+    if employee_id is not None:
+        redemption_query = redemption_query.filter(RewardRedemption.user_id == employee_id)
+    if date_from is not None:
+        redemption_query = redemption_query.filter(RewardRedemption.redeemed_at >= date_from)
+    if date_to is not None:
+        redemption_query = redemption_query.filter(RewardRedemption.redeemed_at <= date_to)
+    total_rewards_redeemed = redemption_query.count()
 
+    # 6. Points Spent on Rewards
+    points_spent_query = db.query(
+        func.sum(RewardRedemption.points_spent)
+    ).select_from(RewardRedemption).join(User, RewardRedemption.user_id == User.id)
+    if department_id is not None:
+        points_spent_query = points_spent_query.filter(User.department_id == department_id)
+    if employee_id is not None:
+        points_spent_query = points_spent_query.filter(RewardRedemption.user_id == employee_id)
+    if date_from is not None:
+        points_spent_query = points_spent_query.filter(RewardRedemption.redeemed_at >= date_from)
+    if date_to is not None:
+        points_spent_query = points_spent_query.filter(RewardRedemption.redeemed_at <= date_to)
+    total_points_spent_on_rewards = points_spent_query.scalar() or 0
 
-BUILDERS = {
-    "env": _env_rows,
-    "social": _social_rows,
-    "gamification": _gamification_rows,
-    "governance": _governance_rows,
-    "summary": _summary_rows,
-}
+    # 7. Challenge Breakdown
+    all_challenges = db.query(Challenge)
+    if challenge_id is not None:
+        all_challenges = all_challenges.filter(Challenge.id == challenge_id)
+    all_challenges = all_challenges.all()
 
+    challenge_breakdown = []
+    for ch in all_challenges:
+        ch_query = db.query(ChallengeParticipation).join(
+            User, ChallengeParticipation.user_id == User.id
+        ).filter(ChallengeParticipation.challenge_id == ch.id)
+        if department_id is not None:
+            ch_query = ch_query.filter(User.department_id == department_id)
+        if employee_id is not None:
+            ch_query = ch_query.filter(ChallengeParticipation.user_id == employee_id)
+        if date_from is not None:
+            ch_query = ch_query.filter(ChallengeParticipation.created_at >= date_from)
+        if date_to is not None:
+            ch_query = ch_query.filter(ChallengeParticipation.created_at <= date_to)
 
-def build_report(db: Session, f: ReportFilters):
-    builder = BUILDERS.get(f.module)
-    if not builder:
-        raise ValueError(f"Unknown module '{f.module}' — expected one of {sorted(BUILDERS)}")
-    return builder(db, f)
+        p_count = ch_query.count()
+        comp_count = ch_query.filter(ChallengeParticipation.progress == 100).count()
+        comp_rate = float(comp_count) / p_count if p_count > 0 else 0.0
 
+        avg_prog_query = db.query(func.avg(ChallengeParticipation.progress)).select_from(
+            ChallengeParticipation
+        ).join(User, ChallengeParticipation.user_id == User.id).filter(
+            ChallengeParticipation.challenge_id == ch.id
+        )
+        if department_id is not None:
+            avg_prog_query = avg_prog_query.filter(User.department_id == department_id)
+        if employee_id is not None:
+            avg_prog_query = avg_prog_query.filter(ChallengeParticipation.user_id == employee_id)
+        if date_from is not None:
+            avg_prog_query = avg_prog_query.filter(ChallengeParticipation.created_at >= date_from)
+        if date_to is not None:
+            avg_prog_query = avg_prog_query.filter(ChallengeParticipation.created_at <= date_to)
 
-# ---- exporters ----
-def to_csv(columns: list[str], rows: list[dict]) -> bytes:
-    buf = io.StringIO(newline="")
-    writer = csv.DictWriter(buf, fieldnames=columns, extrasaction="ignore")
-    writer.writeheader()
-    writer.writerows(rows)
-    # utf-8-sig so Excel on Windows opens it with correct encoding
-    return buf.getvalue().encode("utf-8-sig")
+        avg_prog = avg_prog_query.scalar() or 0.0
 
+        challenge_breakdown.append(
+            {
+                "title": ch.title,
+                "participant_count": p_count,
+                "completion_rate": comp_rate,
+                "avg_progress": float(avg_prog),
+            }
+        )
 
-def to_xlsx(columns: list[str], rows: list[dict]) -> bytes:
-    from openpyxl import Workbook
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Report"
-    ws.append(columns)
-    for row in rows:
-        ws.append([_cell(row.get(c)) for c in columns])
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
-
-
-def to_pdf(columns: list[str], rows: list[dict], title: str) -> bytes:
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import landscape, letter
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(letter),
-                            leftMargin=0.5 * inch, rightMargin=0.5 * inch)
-    styles = getSampleStyleSheet()
-    data = [columns] + [[str(_cell(r.get(c)) if _cell(r.get(c)) is not None else "") for c in columns] for r in rows]
-    table = Table(data, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#166534")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTSIZE", (0, 0), (-1, -1), 7),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f0fdf4")]),
-    ]))
-    doc.build([Paragraph(title, styles["Title"]), Spacer(1, 12), table])
-    return buf.getvalue()
-
-
-def _cell(value):
-    if isinstance(value, bool):
-        return "yes" if value else "no"
-    return value
+    return {
+        "total_challenges": total_challenges,
+        "active_challenges": active_challenges,
+        "completed_challenges": completed_challenges,
+        "total_participations": total_participations,
+        "total_xp_awarded": total_xp_awarded,
+        "total_badges_unlocked": total_badges_unlocked,
+        "total_rewards_redeemed": total_rewards_redeemed,
+        "total_points_spent_on_rewards": total_points_spent_on_rewards,
+        "challenges": challenge_breakdown,
+    }

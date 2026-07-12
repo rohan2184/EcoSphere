@@ -1,13 +1,7 @@
-/**
- * NotificationBell — minimal standalone bell icon with unread count badge.
- *
- * Fetches GET /notifications/unread-count on mount and polls every 15 s.
- * Clicking opens a dropdown panel with recent notifications + mark-all-read.
- */
-
 import { useCallback, useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { api } from "../lib/api";
+import { useToast } from "./ToastProvider";
 
 interface Notification {
   id: number;
@@ -22,6 +16,7 @@ export default function NotificationBell() {
   const [count, setCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notification[]>([]);
+  const { showToast } = useToast();
 
   const fetchCount = useCallback(async () => {
     try {
@@ -57,8 +52,9 @@ export default function NotificationBell() {
       await api.patch("/notifications/read-all");
       setCount(0);
       setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      showToast("All notifications marked as read", "green");
     } catch {
-      /* silent */
+      showToast("Failed to mark notifications as read", "red");
     }
   }
 
@@ -67,8 +63,9 @@ export default function NotificationBell() {
       await api.patch(`/notifications/${id}/read`);
       setItems((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
       setCount((c) => Math.max(0, c - 1));
+      showToast("Notification marked as read", "green");
     } catch {
-      /* silent */
+      showToast("Failed to mark notification as read", "red");
     }
   }
 

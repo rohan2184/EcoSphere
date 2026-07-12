@@ -1,12 +1,9 @@
-/**
- * Challenges — list, status transitions (admin), join/update progress (employee),
- * approve/reject participations (admin).
- */
-
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { Button, Chip, Dialog, Input, Select, Slider, Toast } from "../../components/ui";
+import { Button, Chip, Dialog, Input, Select, Slider } from "../../components/ui";
+import EmptyState from "../../components/EmptyState";
+import { useToast } from "../../components/ToastProvider";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -47,11 +44,11 @@ function statusTone(s: string): "green" | "amber" | "red" | "neutral" {
 
 export default function ChallengeList() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const isAdmin = user?.role === "admin";
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<{ msg: string; tone: "green" | "red" } | null>(null);
 
   /* Join modal (employee) */
   const [joinChallenge, setJoinChallenge] = useState<Challenge | null>(null);
@@ -72,11 +69,11 @@ export default function ChallengeList() {
       const { data } = await api.get<Challenge[]>("/gamification/challenges");
       setChallenges(data);
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     fetchChallenges();
@@ -92,13 +89,13 @@ export default function ChallengeList() {
       setChallenges((prev) =>
         prev.map((c) => (c.id === challengeId ? { ...c, status: newStatus } : c)),
       );
-      setToast({ msg: `Status changed to ${newStatus}`, tone: "green" });
+      showToast(`Challenge status changed to ${newStatus} successfully!`, "green");
     } catch (err) {
       // Revert dropdown visually
       setChallenges((prev) =>
         prev.map((c) => (c.id === challengeId ? { ...c, status: previousStatus } : c)),
       );
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     }
   }
 
@@ -107,9 +104,6 @@ export default function ChallengeList() {
   async function fetchParticipations(challengeId: number) {
     setLoadingParts(true);
     try {
-      // NOTE: the backend may not have a filter param for challenge_id —
-      // fetch all and filter client-side.
-      // TODO: ask backend team to add ?challenge_id= query param.
       const { data } = await api.get<ChallengeParticipation[]>(
         "/gamification/challenge-participations",
       );
@@ -119,7 +113,7 @@ export default function ChallengeList() {
         ),
       );
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setLoadingParts(false);
     }
@@ -135,12 +129,12 @@ export default function ChallengeList() {
         challenge_id: joinChallenge.id,
         progress,
       });
-      setToast({ msg: "Joined challenge!", tone: "green" });
+      showToast("Joined and updated progress successfully!", "green");
       setJoinChallenge(null);
       setProgress(0);
       setProofFile("");
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setSubmitting(false);
     }
@@ -153,10 +147,10 @@ export default function ChallengeList() {
       await api.patch(`/gamification/challenge-participations/${participationId}/approve`, {
         approval_status: decision,
       });
-      setToast({ msg: `Participation ${decision}`, tone: decision === "approved" ? "green" : "red" });
+      showToast(`Participation ${decision} successfully!`, "green");
       if (reviewChallengeId !== null) fetchParticipations(reviewChallengeId);
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     }
   }
 
@@ -172,7 +166,15 @@ export default function ChallengeList() {
       {loading ? (
         <p className="text-sm text-stone-400">Loading…</p>
       ) : challenges.length === 0 ? (
-        <p className="text-sm text-stone-400">No challenges found.</p>
+        <EmptyState
+          icon="🏆"
+          title={isAdmin ? "No Challenges Yet" : "No Challenges Available"}
+          description={
+            isAdmin
+              ? "Create a new challenge to get employees started on their eco journey."
+              : "There are currently no active challenges for you to join. Check back later!"
+          }
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {challenges.map((ch) => (
@@ -253,7 +255,11 @@ export default function ChallengeList() {
                       {loadingParts ? (
                         <p className="text-xs text-stone-400">Loading…</p>
                       ) : participations.length === 0 ? (
-                        <p className="text-xs text-stone-400">No pending participations.</p>
+                        <EmptyState
+                          icon="📋"
+                          title="No Pending Submissions"
+                          description="No employees have pending submissions for review for this challenge."
+                        />
                       ) : (
                         participations.map((p) => (
                           <div
@@ -324,11 +330,6 @@ export default function ChallengeList() {
           </div>
         </div>
       </Dialog>
-
-      {/* ── Toast ──────────────────────────────────────────────── */}
-      {toast && (
-        <Toast message={toast.msg} tone={toast.tone} onDismiss={() => setToast(null)} />
-      )}
     </div>
   );
 }

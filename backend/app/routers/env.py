@@ -16,9 +16,46 @@ from app.schemas.env import (
     CarbonTransactionCreate, CarbonTransactionOut,
     EnvironmentalGoalCreate, EnvironmentalGoalUpdate, EnvironmentalGoalOut,
 )
-from app.services.emissions import create_carbon_transaction
+from app.services.emissions import (
+    create_carbon_transaction,
+    get_emissions_trend,
+    get_department_breakdown,
+    get_goals_progress,
+    get_environmental_report,
+)
 
 router = APIRouter(prefix="/env", tags=["env"])
+
+
+# Report
+@router.get("/report")
+def get_report(
+    department_id: Optional[int] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_environmental_report(db, department_id, date_from, date_to)
+
+
+# Dashboard
+@router.get("/dashboard")
+def get_dashboard(
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    department_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    trend = get_emissions_trend(db, date_from, date_to, department_id)
+    total_co2e = round(sum(point["total_co2e"] for point in trend), 2)
+    return {
+        "total_co2e": total_co2e,
+        "emissions_trend": trend,
+        "department_breakdown": get_department_breakdown(db, date_from, date_to),
+        "goals_progress": get_goals_progress(db, department_id),
+    }
 
 
 # Emission Factors
@@ -181,51 +218,3 @@ def delete_goal(id: int, db: Session = Depends(get_db), user: User = Depends(req
         raise HTTPException(status_code=404, detail="Goal not found")
     db.delete(goal)
     db.commit()
-
-
-# Env dashboard — aggregate emissions for the env pillar view
-@router.get("/dashboard")
-def env_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Emissions by department (include departments with zero so ranking is complete)
-    by_dept = [
-        {"department": name, "co2e": round(total or 0.0, 2)}
-        for name, total in (
-            db.query(Department.name, func.sum(CarbonTransaction.co2e_amount))
-            .outerjoin(CarbonTransaction, CarbonTransaction.department_id == Department.id)
-            .group_by(Department.id, Department.name)
-            .order_by(func.sum(CarbonTransaction.co2e_amount).desc())
-            .all()
-        )
-    ]
-
-    # Emissions by source_type
-    by_source_type = [
-        {"source_type": src.value, "co2e": round(total or 0.0, 2)}
-        for src, total in (
-            db.query(CarbonTransaction.source_type, func.sum(CarbonTransaction.co2e_amount))
-            .group_by(CarbonTransaction.source_type)
-            .all()
-        )
-    ]
-
-    # Monthly trend — bucketed in Python to stay database-agnostic
-    buckets: dict[str, float] = {}
-    for txn_date, amount in db.query(CarbonTransaction.date, CarbonTransaction.co2e_amount).all():
-        if txn_date is None:
-            continue
-        key = txn_date.strftime("%Y-%m")
-        buckets[key] = buckets.get(key, 0.0) + (amount or 0.0)
-    monthly_trend = [{"month": k, "co2e": round(v, 2)} for k, v in sorted(buckets.items())]
-
-    total_co2e = round(
-        db.query(func.coalesce(func.sum(CarbonTransaction.co2e_amount), 0.0)).scalar() or 0.0, 2
-    )
-    transaction_count = db.query(func.count(CarbonTransaction.id)).scalar() or 0
-
-    return {
-        "total_co2e": total_co2e,
-        "transaction_count": transaction_count,
-        "by_department": by_dept,
-        "by_source_type": by_source_type,
-        "monthly_trend": monthly_trend,
-    }
