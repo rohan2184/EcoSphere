@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { useFakeRole } from "../lib/fakeAuth";
+import NotificationBell from "./NotificationBell";
 
 interface Notification {
   id: number;
@@ -94,11 +96,15 @@ const nav = [
   { to: "/governance/audits", label: "Audits", icon: "✓" },
   { to: "/governance/compliance", label: "Compliance", icon: "⚠" },
   { to: "/reports", label: "Reports", icon: "▤" },
-  // Person A/B: append your module pages here (env, social, gamification)
+  { to: "/social/csr-activities", label: "CSR Activities", icon: "♻" },
+  { to: "/gamification/challenges", label: "Challenges", icon: "🏆" },
+  { to: "/gamification/leaderboard", label: "Leaderboard", icon: "📊" },
+  { to: "/gamification/badges-rewards", label: "Badges & Rewards", icon: "🎖" },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const [role, setRole] = useFakeRole();
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 shrink-0 bg-emerald-950 text-emerald-50 flex flex-col">
@@ -122,15 +128,36 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        {/* ── Role switcher (testing only) ──────────────────────── */}
+        <div className="px-4 py-2 border-t border-emerald-900">
+          <label className="text-[10px] uppercase tracking-wider text-emerald-400/60 block mb-1">
+            Test Role
+          </label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as "admin" | "employee")}
+            className="w-full rounded bg-emerald-900 border border-emerald-800 text-emerald-100 text-xs px-2 py-1 focus:outline-none"
+          >
+            <option value="employee">Employee</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+
         <div className="px-5 py-4 text-xs text-emerald-300/70 border-t border-emerald-900">
-          {user ? (
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate">{user.name} · {user.role}</span>
-              <button onClick={logout} className="underline hover:text-white">Logout</button>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <NotificationBell />
+              {user ? (
+                <span className="truncate">{user.name} · {user.role}</span>
+              ) : (
+                <span>Dev mode · {role}</span>
+              )}
             </div>
-          ) : (
-            <span>Not signed in (dev)</span>
-          )}
+            {user && (
+              <button onClick={logout} className="underline hover:text-white shrink-0">Logout</button>
+            )}
+          </div>
         </div>
       </aside>
       <main className="flex-1 min-w-0">
