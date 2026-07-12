@@ -133,7 +133,7 @@ def update_user(id: int, user_in: UserAdminUpdate, db: Session = Depends(get_db)
     db.refresh(user)
     return user
 
-from app.core.security import get_password_hash
+from app.core.security import hash_password
 from app.schemas.core import UserCreate
 
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -142,7 +142,7 @@ def create_user(user_in: UserCreate, db: Session = Depends(get_db), admin_user: 
     if existing:
         raise HTTPException(status_code=400, detail="User with this email already exists")
     
-    hashed_password = get_password_hash(user_in.password)
+    hashed_password = hash_password(user_in.password)
     user_data = user_in.model_dump(exclude={"password"})
     user_data["hashed_password"] = hashed_password
     
