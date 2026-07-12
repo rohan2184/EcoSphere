@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, get_settings, require_role
+from app.core.deps import get_current_user, get_db, get_settings_stub, require_role
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -45,7 +45,7 @@ def read_settings(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    return get_settings(db)
+    return get_settings_stub()
 
 
 @router.put("", response_model=SettingsOut)
@@ -54,7 +54,7 @@ def update_settings(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_role("admin")),
 ):
-    row = get_settings(db)
+    row = get_settings_stub()
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(row, field, value)
     db.commit()

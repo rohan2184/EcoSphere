@@ -1,11 +1,9 @@
-/**
- * Badges and Rewards — view available/earned badges, redeem rewards.
- */
-
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { Button, Toast } from "../../components/ui";
+import { Button } from "../../components/ui";
+import EmptyState from "../../components/EmptyState";
+import { useToast } from "../../components/ToastProvider";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -38,6 +36,7 @@ interface Reward {
 
 export default function BadgesAndRewards() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [myBadges, setMyBadges] = useState<UserBadge[]>([]);
@@ -45,8 +44,6 @@ export default function BadgesAndRewards() {
   
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<number | null>(null);
-  
-  const [toast, setToast] = useState<{ msg: string; tone: "green" | "red" } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -64,11 +61,11 @@ export default function BadgesAndRewards() {
         setMyBadges(myBadgesRes.data);
       }
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, showToast]);
 
   useEffect(() => {
     fetchData();
@@ -78,14 +75,14 @@ export default function BadgesAndRewards() {
     setRedeeming(reward.id);
     try {
       await api.post(`/gamification/rewards/${reward.id}/redeem`);
-      setToast({ msg: `Successfully redeemed ${reward.name} for ${reward.points_required} points!`, tone: "green" });
+      showToast(`Successfully redeemed ${reward.name} for ${reward.points_required} points!`, "green");
       
       // Update local stock to avoid full refetch
       setRewards((prev) => 
         prev.map((r) => r.id === reward.id ? { ...r, stock: Math.max(0, r.stock - 1) } : r)
       );
     } catch (err) {
-      setToast({ msg: errorMessage(err), tone: "red" });
+      showToast(errorMessage(err), "red");
     } finally {
       setRedeeming(null);
     }
@@ -105,7 +102,11 @@ export default function BadgesAndRewards() {
         {loading ? (
           <p className="text-sm text-stone-400">Loading…</p>
         ) : allBadges.length === 0 ? (
-          <p className="text-sm text-stone-400">No badges available.</p>
+          <EmptyState
+            icon="🎖"
+            title="No Badges Available"
+            description="There are currently no badges defined for eco-milestones."
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {allBadges.map((badge) => {
@@ -155,7 +156,11 @@ export default function BadgesAndRewards() {
         {loading ? (
           <p className="text-sm text-stone-400">Loading…</p>
         ) : rewards.length === 0 ? (
-          <p className="text-sm text-stone-400">No rewards available.</p>
+          <EmptyState
+            icon="🎁"
+            title="No Rewards Available"
+            description="There are currently no items in the reward store."
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {rewards.map((reward) => (
@@ -191,11 +196,6 @@ export default function BadgesAndRewards() {
           </div>
         )}
       </section>
-
-      {/* ── Toast ──────────────────────────────────────────────── */}
-      {toast && (
-        <Toast message={toast.msg} tone={toast.tone} onDismiss={() => setToast(null)} />
-      )}
     </div>
   );
 }

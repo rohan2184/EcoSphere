@@ -5,12 +5,15 @@ Wire into main.py with:
     app.include_router(social.router, prefix="/api")
 """
 
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, get_settings
+from app.core.deps import get_current_user, get_db, get_settings_stub
+from app.schemas.reports import SocialReportOut
+from app.services.reports import get_social_report
 from app.schemas.social import (
     CSRActivityCreate,
     CSRActivityOut,
@@ -144,7 +147,7 @@ def approve_or_reject_participation(
     Returns 404 if the participation does not exist.
     """
     _require_admin(current_user)
-    settings = get_settings(db)
+    settings = get_settings_stub()
     try:
         return approve_participation(
             db,
@@ -160,3 +163,26 @@ def approve_or_reject_participation(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         )
+
+
+@router.get("/report", response_model=SocialReportOut)
+def social_report(
+    department_id: Optional[int] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    employee_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Generate Social module report with department/date/employee filters (Admin only).
+    """
+    _require_admin(current_user)
+    return get_social_report(
+        db,
+        department_id=department_id,
+        date_from=date_from,
+        date_to=date_to,
+        employee_id=employee_id,
+    )
+
