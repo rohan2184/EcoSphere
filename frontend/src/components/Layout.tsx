@@ -1,9 +1,14 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { useFakeRole } from "../lib/fakeAuth";
 import NotificationBell from "./NotificationBell";
 
+<<<<<<< HEAD
 const nav = [
+=======
+type NavItem = { to: string; label: string; icon: string; roles?: string[] };
+
+const nav: NavItem[] = [
+>>>>>>> e0040ca0994396c059dd7dcd9c2e8902103053a8
   { to: "/dashboard", label: "Dashboard", icon: "◉" },
   { to: "/governance/policies", label: "Policies", icon: "§" },
   { to: "/governance/audits", label: "Audits", icon: "✓" },
@@ -13,11 +18,15 @@ const nav = [
   { to: "/gamification/challenges", label: "Challenges", icon: "🏆" },
   { to: "/gamification/leaderboard", label: "Leaderboard", icon: "📊" },
   { to: "/gamification/badges-rewards", label: "Badges & Rewards", icon: "🎖" },
+  // Env module — master/env writes are admin/manager only (plan §8)
+  { to: "/env/dashboard", label: "Emissions", icon: "🌍" },
+  { to: "/env/emission-factors", label: "Emission Factors", icon: "🏭", roles: ["admin", "manager"] },
+  { to: "/env/carbon-transactions", label: "Carbon Transactions", icon: "💨", roles: ["admin", "manager"] },
+  { to: "/env/goals", label: "Env Goals", icon: "🎯", roles: ["admin", "manager"] },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
-  const [role, setRole] = useFakeRole();
   return (
     <div className="flex min-h-screen">
       <aside className="w-56 shrink-0 bg-emerald-950 text-emerald-50 flex flex-col">
@@ -26,7 +35,9 @@ export default function Layout() {
           <div className="text-[11px] font-normal text-emerald-300/80">ESG Management</div>
         </div>
         <nav className="flex-1 px-2 space-y-0.5">
-          {nav.map((item) => (
+          {nav
+            .filter((item) => !item.roles || (user && item.roles.includes(user.role)))
+            .map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -42,45 +53,18 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* ── Role switcher (testing only) ──────────────────────── */}
-        <div className="px-4 py-2 border-t border-emerald-900">
-          <label className="text-[10px] uppercase tracking-wider text-emerald-400/60 block mb-1">
-            Test Role
-          </label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as "admin" | "employee")}
-            className="w-full rounded bg-emerald-900 border border-emerald-800 text-emerald-100 text-xs px-2 py-1 focus:outline-none"
-          >
-            <option value="employee">Employee</option>
-            <option value="admin">Admin</option>
-          </select>
-        </div>
-
         <div className="px-5 py-4 text-xs text-emerald-300/70 border-t border-emerald-900">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <NotificationBell />
-              {user ? (
-                <span className="truncate">{user.name} · {user.role}</span>
-              ) : (
-                <span>Dev mode · {role}</span>
-              )}
+              {user && <span className="truncate">{user.name} · {user.role}</span>}
             </div>
-            {user && (
-              <button onClick={logout} className="underline hover:text-white shrink-0">Logout</button>
-            )}
+            <button onClick={logout} className="underline hover:text-white shrink-0">Logout</button>
           </div>
         </div>
       </aside>
-      <main className="flex-1 min-w-0">
-        <header className="flex items-center justify-end gap-3 border-b border-stone-200 bg-white px-6 py-2">
-          {user && <span className="text-sm text-stone-500">{user.name}</span>}
-          <NotificationBell />
-        </header>
-        <div className="p-6 lg:p-8">
-          <Outlet />
-        </div>
+      <main className="flex-1 min-w-0 p-6 lg:p-8">
+        <Outlet />
       </main>
     </div>
   );

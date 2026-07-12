@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "../../lib/api";
+<<<<<<< HEAD
 import { useFakeRole } from "../../lib/fakeAuth";
 import { Button, Chip, Dialog, Input, Select, Slider } from "../../components/ui";
 import EmptyState from "../../components/EmptyState";
 import { useToast } from "../../components/ToastProvider";
+=======
+import { useAuth } from "../../lib/auth";
+import { Button, Chip, Dialog, Input, Select, Slider, Toast } from "../../components/ui";
+>>>>>>> e0040ca0994396c059dd7dcd9c2e8902103053a8
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -43,9 +48,14 @@ function statusTone(s: string): "green" | "amber" | "red" | "neutral" {
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export default function ChallengeList() {
+<<<<<<< HEAD
   const [role] = useFakeRole();
   const { showToast } = useToast();
   const isAdmin = role === "admin";
+=======
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+>>>>>>> e0040ca0994396c059dd7dcd9c2e8902103053a8
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);

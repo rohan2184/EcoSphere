@@ -3,21 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import (
     auth,
+    core,
     dashboard,
+    env,
     gamification,
     governance,
     notifications,
     reports,
-    settings,
     social,
 )
 
 app = FastAPI(title="EcoSphere API")
-
-from app.core.database import engine, Base
-from app.models import auth, core, env # import models to ensure they are registered
-
-Base.metadata.create_all(bind=engine)
 
 # Setup CORS
 app.add_middleware(
@@ -28,22 +24,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.routers import auth, core, env
-
-app.include_router(auth.router, prefix="/api")
-app.include_router(core.router, prefix="/api")
-app.include_router(env.router, prefix="/api")
-
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
-# Routers (append-only — plan §10)
+# Routers (append-only — plan §10). Schema is managed by Alembic
+# (`alembic upgrade head`), not create_all.
+app.include_router(auth.router, prefix="/api")
+app.include_router(core.router, prefix="/api")
+app.include_router(env.router, prefix="/api")
 app.include_router(governance.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
-app.include_router(auth.router, prefix="/api")
-app.include_router(settings.router, prefix="/api")
 app.include_router(social.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(gamification.router, prefix="/api")
