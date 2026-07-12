@@ -5,14 +5,12 @@ import EmptyState from "../../components/EmptyState";
 import { Button, Chip, Dialog, Input, Select } from "../../components/ui";
 import { useToast } from "../../components/ToastProvider";
 
-/* ── Types ──────────────────────────────────────────────────────────── */
-
-const OP_TYPES = ["purchase", "manufacturing", "expense", "fleet"] as const;
-type OpType = (typeof OP_TYPES)[number];
+const SOURCE_TYPES = ["purchase", "manufacturing", "expense", "fleet"] as const;
+type SourceType = (typeof SOURCE_TYPES)[number];
 
 interface OperationRecord extends Record<string, unknown> {
   id: number;
-  op_type: OpType;
+  op_type: SourceType;
   department_id: number;
   product_id: number | null;
   quantity: number;
@@ -21,34 +19,18 @@ interface OperationRecord extends Record<string, unknown> {
   created_at: string;
 }
 
-interface CarbonTransactionOut {
-  id: number;
+interface DeptOption {
   department_id: number;
-  emission_factor_id: number;
-  source_type: string;
-  quantity: number;
-  co2e_kg: number;
-  date: string;
+  department_name: string;
 }
 
-interface OperationWithTxn {
-  operation: OperationRecord;
-  carbon_transaction: CarbonTransactionOut | null;
-  warning: string | null;
-}
-
-interface Department {
-  id: number;
-  name: string;
-}
-
-interface Product {
+interface ProductOption {
   id: number;
   product_name: string;
 }
 
 interface FormState {
-  op_type: OpType;
+  op_type: SourceType;
   department_id: string;
   product_id: string;
   quantity: string;
@@ -65,71 +47,53 @@ const EMPTY_FORM: FormState = {
   date: new Date().toISOString().slice(0, 10),
 };
 
-const OP_TYPE_LABELS: Record<OpType, string> = {
-  purchase: "Purchase",
-  manufacturing: "Manufacturing",
-  expense: "Expense",
-  fleet: "Fleet",
-};
-
-const OP_TYPE_ICONS: Record<OpType, string> = {
-  purchase: "🛒",
-  manufacturing: "🏭",
-  expense: "💰",
-  fleet: "🚛",
-};
-
 function SkeletonBlock({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-stone-200 ${className}`} />;
 }
 
-/* ── Component ─────────────────────────────────────────────────────── */
-
 export default function Operations() {
   const { showToast } = useToast();
   const [rows, setRows] = useState<OperationRecord[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [departments, setDepartments] = useState<DeptOption[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Filters
-  const [filterOpType, setFilterOpType] = useState("");
-  const [filterDeptId, setFilterDeptId] = useState("");
-
-  // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<OperationRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-  const deptMap = new Map(departments.map((d) => [d.id, d.name]));
-  const productMap = new Map(products.map((p) => [p.id, p.product_name]));
+  /* Result dialog — shown after successful create showing the auto-generated transaction */
+  const [resultDialog, setResultDialog] = useState<{
+    operation: OperationRecord;
+    carbon_transaction: Record<string, unknown> | null;
+    warning: string | null;
+  } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     setError("");
-    const params = new URLSearchParams();
-    if (filterOpType) params.set("op_type", filterOpType);
-    if (filterDeptId) params.set("department_id", filterDeptId);
-    api
-      .get<OperationRecord[]>(`/env/operations?${params}`)
-      .then((r) => setRows(r.data))
+    Promise.all([
+      api.get<OperationRecord[]>("/env/operations"),
+      api.get<DeptOption[]>("/dashboard/scores").catch(() => ({ data: [] as DeptOption[] })),
+      api.get<ProductOption[]>("/env/products").catch(() => ({ data: [] as ProductOption[] })),
+    ])
+      .then(([opsRes, deptRes, prodRes]) => {
+        setRows(opsRes.data);
+        setDepartments(deptRes.data);
+        setProducts(prodRes.data);
+      })
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setLoading(false));
-  }, [filterOpType, filterDeptId]);
-
-  useEffect(() => {
-    Promise.all([
-      api.get<Department[]>("/departments"),
-      api.get<Product[]>("/env/products"),
-    ]).then(([depts, prods]) => {
-      setDepartments(depts.data);
-      setProducts(prods.data);
-    }).catch(() => {});
   }, []);
-
   useEffect(load, [load]);
+
+  const deptName = (id: number) =>
+    departments.find((d) => d.department_id === id)?.department_name ?? `Dept #${id}`;
+
+  const productName = (id: number | null) =>
+    id ? products.find((p) => p.id === id)?.product_name ?? `Product #${id}` : "—";
 
   function openAdd() {
     setEditing(null);
@@ -142,7 +106,7 @@ export default function Operations() {
     setForm({
       op_type: row.op_type,
       department_id: String(row.department_id),
-      product_id: row.product_id ? String(row.product_id) : "",
+      product_id: row.product_id != null ? String(row.product_id) : "",
       quantity: String(row.quantity),
       amount: String(row.amount),
       date: row.date,
@@ -152,10 +116,6 @@ export default function Operations() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.department_id) {
-      showToast("Department is required.", "red");
-      return;
-    }
     setSaving(true);
     try {
       const payload = {
@@ -168,19 +128,11 @@ export default function Operations() {
       };
       if (editing) {
         await api.put(`/env/operations/${editing.id}`, payload);
-        showToast("Operation updated.", "green");
+        showToast("Operation record updated.", "green");
       } else {
-        const { data } = await api.post<OperationWithTxn>("/env/operations", payload);
-        if (data.carbon_transaction) {
-          showToast(
-            `Operation created → auto-generated carbon transaction: ${data.carbon_transaction.co2e_kg.toFixed(2)} kg CO₂e`,
-            "green",
-          );
-        } else if (data.warning) {
-          showToast(`Operation created. ⚠ ${data.warning}`, "green");
-        } else {
-          showToast("Operation created (auto-calc disabled).", "green");
-        }
+        // Create returns OperationRecordWithTransaction
+        const { data } = await api.post("/env/operations", payload);
+        setResultDialog(data);
       }
       setDialogOpen(false);
       load();
@@ -192,10 +144,10 @@ export default function Operations() {
   }
 
   async function remove(row: OperationRecord) {
-    if (!confirm(`Delete this ${row.op_type} operation (#${row.id})?`)) return;
+    if (!confirm(`Delete operation #${row.id}?`)) return;
     try {
       await api.delete(`/env/operations/${row.id}`);
-      showToast("Operation deleted.", "green");
+      showToast("Operation record deleted.", "green");
       load();
     } catch (err) {
       showToast(errorMessage(err), "red");
@@ -206,46 +158,13 @@ export default function Operations() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-stone-800">Operations</h1>
+          <h1 className="text-2xl font-bold text-stone-800">Operation Records</h1>
           <p className="text-sm text-stone-500">
-            Purchase, manufacturing, expense, and fleet records — auto-linked to carbon transactions.
+            Track purchases, manufacturing runs, expenses, and fleet trips. Auto-generates carbon
+            transactions when enabled.
           </p>
         </div>
         <Button onClick={openAdd}>+ Add Operation</Button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-end gap-2 rounded-xl border border-stone-200 bg-white p-3 shadow-sm">
-        <label className="text-sm text-stone-600">
-          Type
-          <Select
-            value={filterOpType}
-            onChange={(e) => setFilterOpType(e.target.value)}
-            className="mt-1 block"
-          >
-            <option value="">All</option>
-            {OP_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {OP_TYPE_ICONS[t]} {OP_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="text-sm text-stone-600">
-          Department
-          <Select
-            value={filterDeptId}
-            onChange={(e) => setFilterDeptId(e.target.value)}
-            className="mt-1 block"
-          >
-            <option value="">All</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </Select>
-        </label>
       </div>
 
       {error && (
@@ -267,8 +186,8 @@ export default function Operations() {
       ) : rows.length === 0 && !error ? (
         <EmptyState
           icon="📋"
-          title="No operations recorded"
-          description="Add your first operation record to start tracking purchases, manufacturing, expenses, or fleet activities."
+          title="No operation records yet"
+          description="Record your first operation to start tracking emissions from business activities."
           actionLabel="+ Add Operation"
           onAction={openAdd}
         />
@@ -280,21 +199,28 @@ export default function Operations() {
               key: "op_type",
               label: "Type",
               render: (r) => (
-                <Chip tone={r.op_type === "fleet" ? "amber" : r.op_type === "manufacturing" ? "green" : "neutral"}>
-                  {OP_TYPE_ICONS[r.op_type]} {OP_TYPE_LABELS[r.op_type]}
+                <Chip
+                  tone={
+                    r.op_type === "purchase"
+                      ? "green"
+                      : r.op_type === "fleet"
+                        ? "amber"
+                        : "neutral"
+                  }
+                >
+                  {r.op_type}
                 </Chip>
               ),
             },
             {
               key: "department_id",
               label: "Department",
-              render: (r) => deptMap.get(r.department_id) ?? `Dept #${r.department_id}`,
+              render: (r) => <>{deptName(r.department_id)}</>,
             },
             {
               key: "product_id",
               label: "Product",
-              render: (r) =>
-                r.product_id ? (productMap.get(r.product_id) ?? `#${r.product_id}`) : "—",
+              render: (r) => <>{productName(r.product_id)}</>,
             },
             {
               key: "quantity",
@@ -304,7 +230,7 @@ export default function Operations() {
             {
               key: "amount",
               label: "Amount",
-              render: (r) => <span className="tabular-nums">{r.amount.toLocaleString()}</span>,
+              render: (r) => <span className="tabular-nums">{r.amount}</span>,
             },
             { key: "date", label: "Date" },
             {
@@ -323,11 +249,11 @@ export default function Operations() {
             },
           ]}
           rows={rows}
-          empty="No operations match these filters."
+          empty="No operation records yet."
         />
       )}
 
-      {/* ── Create / Edit Dialog ─────────────────────────────────── */}
+      {/* Create / Edit dialog */}
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -338,12 +264,12 @@ export default function Operations() {
             <label className="text-xs font-medium text-stone-600">Operation Type</label>
             <Select
               value={form.op_type}
-              onChange={(e) => setForm({ ...form, op_type: e.target.value as OpType })}
+              onChange={(e) => setForm({ ...form, op_type: e.target.value as SourceType })}
               className="w-full"
             >
-              {OP_TYPES.map((t) => (
+              {SOURCE_TYPES.map((t) => (
                 <option key={t} value={t}>
-                  {OP_TYPE_ICONS[t]} {OP_TYPE_LABELS[t]}
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
                 </option>
               ))}
             </Select>
@@ -356,12 +282,10 @@ export default function Operations() {
               onChange={(e) => setForm({ ...form, department_id: e.target.value })}
               className="w-full"
             >
-              <option value="" disabled>
-                Select department
-              </option>
+              <option value="">Select department…</option>
               {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
+                <option key={d.department_id} value={d.department_id}>
+                  {d.department_name}
                 </option>
               ))}
             </Select>
@@ -389,7 +313,7 @@ export default function Operations() {
                 type="number"
                 step="any"
                 min="0"
-                placeholder="e.g. 100"
+                placeholder="e.g. 500"
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 className="w-full"
@@ -402,7 +326,7 @@ export default function Operations() {
                 type="number"
                 step="any"
                 min="0"
-                placeholder="e.g. 5000"
+                placeholder="e.g. 1200.00"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 className="w-full"
@@ -419,11 +343,6 @@ export default function Operations() {
               className="w-full"
             />
           </div>
-          {!editing && (
-            <p className="text-xs text-stone-400">
-              💡 If auto-emission calculation is enabled, a carbon transaction will be generated automatically.
-            </p>
-          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
@@ -433,6 +352,58 @@ export default function Operations() {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Result dialog — shows auto-generated carbon transaction */}
+      <Dialog
+        open={resultDialog !== null}
+        onClose={() => setResultDialog(null)}
+        title="Operation Created"
+      >
+        {resultDialog && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+              <p className="text-sm font-medium text-emerald-800">
+                ✓ Operation #{resultDialog.operation.id} recorded successfully
+              </p>
+              <p className="text-xs text-emerald-600 mt-1">
+                {resultDialog.operation.op_type} · Qty {resultDialog.operation.quantity} · Amount{" "}
+                {resultDialog.operation.amount}
+              </p>
+            </div>
+
+            {resultDialog.carbon_transaction ? (
+              <div className="rounded-lg bg-sky-50 border border-sky-200 p-3">
+                <p className="text-sm font-medium text-sky-800">
+                  ⚡ Auto-generated Carbon Transaction
+                </p>
+                <p className="text-xs text-sky-600 mt-1">
+                  CO₂e:{" "}
+                  <span className="font-bold">
+                    {(resultDialog.carbon_transaction.co2e_amount as number)?.toFixed(2)} kg
+                  </span>{" "}
+                  · Factor #{String(resultDialog.carbon_transaction.emission_factor_id)}
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-lg bg-stone-50 border border-stone-200 p-3">
+                <p className="text-sm text-stone-500">
+                  No carbon transaction was auto-generated (auto-calc may be disabled).
+                </p>
+              </div>
+            )}
+
+            {resultDialog.warning && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                <p className="text-sm text-amber-700">⚠ {resultDialog.warning}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={() => setResultDialog(null)}>Close</Button>
+            </div>
+          </div>
+        )}
       </Dialog>
     </div>
   );

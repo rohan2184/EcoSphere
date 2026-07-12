@@ -11,7 +11,10 @@ interface Audit extends Record<string, unknown> {
   date: string | null;
   scope: string | null;
   result: string | null;
+  status: string | null;
 }
+
+const AUDIT_STATUSES = ["under_review", "completed"] as const;
 
 interface DeptOption { department_id: number; department_name: string }
 
@@ -22,6 +25,7 @@ interface FormState {
   date: string;
   scope: string;
   result: string;
+  status: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -31,6 +35,7 @@ const EMPTY_FORM: FormState = {
   date: "",
   scope: "",
   result: "",
+  status: "under_review",
 };
 
 export default function Audits() {
@@ -79,6 +84,7 @@ export default function Audits() {
       date: row.date ?? "",
       scope: row.scope ?? "",
       result: row.result ?? "",
+      status: row.status ?? "under_review",
     });
     setDialogOpen(true);
   }
@@ -94,6 +100,7 @@ export default function Audits() {
         date: form.date || null,
         scope: form.scope || null,
         result: form.result || null,
+        status: form.status,
       };
       if (editing) {
         await api.put(`/governance/audits/${editing.id}`, payload);
@@ -151,6 +158,12 @@ export default function Audits() {
             { key: "department_id", label: "Department", render: (r) => <>{deptName(r.department_id)}</> },
             { key: "date", label: "Date" },
             { key: "scope", label: "Scope" },
+            {
+              key: "status", label: "Status",
+              render: (r) => r.status
+                ? <Chip tone={r.status === "completed" ? "green" : "amber"}>{r.status === "under_review" ? "Under Review" : "Completed"}</Chip>
+                : <>—</>,
+            },
             {
               key: "result", label: "Result",
               render: (r) => r.result
@@ -231,18 +244,34 @@ export default function Audits() {
               />
             </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-stone-600">Result</label>
-            <Select
-              value={form.result}
-              onChange={(e) => setForm({ ...form, result: e.target.value })}
-              className="w-full"
-            >
-              <option value="">Select result…</option>
-              <option value="pass">Pass</option>
-              <option value="fail">Fail</option>
-              <option value="observations">Observations</option>
-            </Select>
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-stone-600">Result</label>
+              <Select
+                value={form.result}
+                onChange={(e) => setForm({ ...form, result: e.target.value })}
+                className="w-full"
+              >
+                <option value="">Select result…</option>
+                <option value="pass">Pass</option>
+                <option value="fail">Fail</option>
+                <option value="observations">Observations</option>
+              </Select>
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-stone-600">Status</label>
+              <Select
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className="w-full"
+              >
+                {AUDIT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s === "under_review" ? "Under Review" : "Completed"}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

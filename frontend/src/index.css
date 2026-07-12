@@ -40,3 +40,48 @@ body {
   }
   .reveal { opacity: 1; transform: none; }
 }
+
+/* ── Mobile sidebar ───────────────────────────────────────────────────── */
+@keyframes slideInLeft {
+  from { transform: translateX(-100%) }
+  to   { transform: translateX(0) }
+}
+
+.sidebar-hamburger {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background: #022c22;
+  color: #d1fae5;
+  font-size: 1.25rem;
+  border: 1px solid #064e3b;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.sidebar-hamburger:hover { background: #064e3b; }
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 150ms ease-out;
+}
+
+.sidebar-mobile {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  width: 14rem;
+  animation: slideInLeft 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+}
+

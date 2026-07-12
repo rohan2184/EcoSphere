@@ -61,6 +61,14 @@ export default function ChallengeList() {
   const [participations, setParticipations] = useState<ChallengeParticipation[]>([]);
   const [loadingParts, setLoadingParts] = useState(false);
 
+  /* Admin: create challenge dialog */
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    title: "", description: "", xp: "50", difficulty: "easy",
+    evidence_required: false, deadline: "",
+  });
+  const [createSaving, setCreateSaving] = useState(false);
+
   /* ── Fetch challenges ──────────────────────────────────────── */
 
   const fetchChallenges = useCallback(async () => {
@@ -167,13 +175,52 @@ export default function ChallengeList() {
     }
   }
 
+  /* ── Admin: create challenge ────────────────────────────────── */
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateSaving(true);
+    try {
+      await api.post("/gamification/challenges", {
+        title: createForm.title,
+        description: createForm.description || null,
+        xp: Number(createForm.xp),
+        difficulty: createForm.difficulty || null,
+        evidence_required: createForm.evidence_required,
+        deadline: createForm.deadline || null,
+      });
+      showToast("Challenge created successfully!", "green");
+      setCreateOpen(false);
+      setCreateForm({ title: "", description: "", xp: "50", difficulty: "easy", evidence_required: false, deadline: "" });
+      fetchChallenges();
+    } catch (err) {
+      showToast(errorMessage(err), "red");
+    } finally {
+      setCreateSaving(false);
+    }
+  }
+
+  async function handleDelete(challengeId: number) {
+    if (!confirm("Delete this challenge? This cannot be undone.")) return;
+    try {
+      await api.delete(`/gamification/challenges/${challengeId}`);
+      showToast("Challenge deleted.", "green");
+      fetchChallenges();
+    } catch (err) {
+      showToast(errorMessage(err), "red");
+    }
+  }
+
   /* ── Render ────────────────────────────────────────────────── */
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-stone-900">Challenges</h1>
-        <p className="text-sm text-stone-500 mt-1">Gamification challenges for employees</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-stone-900">Challenges</h1>
+          <p className="text-sm text-stone-500 mt-1">Gamification challenges for employees</p>
+        </div>
+        {isAdmin && <Button onClick={() => setCreateOpen(true)}>+ Create Challenge</Button>}
       </div>
 
       {loading ? (
@@ -248,20 +295,25 @@ export default function ChallengeList() {
                 </Button>
               )}
 
-              {/* Admin: Review participations */}
+              {/* Admin: Review participations + Delete */}
               {isAdmin && (
                 <div className="space-y-2">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      const expanding = reviewChallengeId !== ch.id;
-                      setReviewChallengeId(expanding ? ch.id : null);
-                      if (expanding) fetchParticipations(ch.id);
-                    }}
-                  >
-                    {reviewChallengeId === ch.id ? "Hide Participations" : "Review Participations"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const expanding = reviewChallengeId !== ch.id;
+                        setReviewChallengeId(expanding ? ch.id : null);
+                        if (expanding) fetchParticipations(ch.id);
+                      }}
+                    >
+                      {reviewChallengeId === ch.id ? "Hide" : "Review"}
+                    </Button>
+                    <Button variant="danger" onClick={() => handleDelete(ch.id)}>
+                      Delete
+                    </Button>
+                  </div>
 
                   {reviewChallengeId === ch.id && (
                     <div className="mt-2 space-y-2 border-t border-stone-100 pt-2">
@@ -349,6 +401,88 @@ export default function ChallengeList() {
             </Button>
           </div>
         </div>
+      </Dialog>
+
+      {/* ── Create Challenge Dialog (admin) ──────────────────── */}
+      <Dialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title="Create Challenge"
+      >
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-stone-600">Title</label>
+            <Input
+              required
+              placeholder="e.g. Zero-Waste Week"
+              value={createForm.title}
+              onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+              className="w-full"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-stone-600">Description</label>
+            <Input
+              placeholder="Challenge description"
+              value={createForm.description}
+              onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+              className="w-full"
+            />
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-stone-600">XP Reward</label>
+              <Input
+                required
+                type="number"
+                min="1"
+                value={createForm.xp}
+                onChange={(e) => setCreateForm({ ...createForm, xp: e.target.value })}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-stone-600">Difficulty</label>
+              <Select
+                value={createForm.difficulty}
+                onChange={(e) => setCreateForm({ ...createForm, difficulty: e.target.value })}
+                className="w-full"
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </Select>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1">
+              <label className="text-xs font-medium text-stone-600">Deadline</label>
+              <Input
+                type="date"
+                value={createForm.deadline}
+                onChange={(e) => setCreateForm({ ...createForm, deadline: e.target.value })}
+                className="w-full"
+              />
+            </div>
+            <div className="flex-1 flex items-end">
+              <label className="flex items-center gap-2 text-sm text-stone-700 py-1.5">
+                <input
+                  type="checkbox"
+                  checked={createForm.evidence_required}
+                  onChange={(e) => setCreateForm({ ...createForm, evidence_required: e.target.checked })}
+                  className="accent-emerald-600"
+                />
+                Evidence Required
+              </label>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={createSaving}>
+              {createSaving ? "Creating…" : "Create Challenge"}
+            </Button>
+          </div>
+        </form>
       </Dialog>
     </div>
   );
