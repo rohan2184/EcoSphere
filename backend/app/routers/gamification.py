@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, get_settings_stub
+from app.core.deps import get_current_user, get_db, get_settings
 from app.models.auth import User
 from app.models.gamification import Badge, UserBadge
 from app.schemas.gamification import (
@@ -226,7 +226,7 @@ def approve_or_reject_participation(
     Returns 404 if the participation does not exist.
     """
     _require_admin(current_user)
-    settings = get_settings_stub()
+    settings = get_settings(db)
     try:
         return approve_challenge_participation(
             db,

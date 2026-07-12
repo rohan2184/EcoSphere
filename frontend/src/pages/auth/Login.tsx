@@ -39,8 +39,6 @@ export default function Login() {
         </div>
         <p className="mt-4 text-center text-sm text-stone-500">
           No account? <Link to="/register" className="text-emerald-700 underline">Register</Link>
-          {" · "}
-          <Link to="/dashboard" className="text-stone-400 underline">Skip (dev)</Link>
         </p>
       </form>
     </div>
