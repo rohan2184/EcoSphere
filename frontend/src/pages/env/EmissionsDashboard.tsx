@@ -56,10 +56,10 @@ interface Department {
 /* ── Status helpers ─────────────────────────────────────────────────────── */
 
 const STATUS_STYLES: Record<string, { badge: string; bar: string; label: string }> = {
-  on_track:  { badge: "bg-emerald-100 text-emerald-800", bar: "bg-emerald-500",  label: "On track"  },
-  at_risk:   { badge: "bg-amber-100 text-amber-800",     bar: "bg-amber-500",    label: "At risk"   },
-  overdue:   { badge: "bg-red-100 text-red-700",         bar: "bg-red-500",      label: "Overdue"   },
-  achieved:  { badge: "bg-indigo-100 text-indigo-800",   bar: "bg-indigo-500",   label: "Achieved"  },
+  on_track: { badge: "bg-emerald-100 text-emerald-800", bar: "bg-emerald-500", label: "On track" },
+  at_risk: { badge: "bg-amber-100 text-amber-800", bar: "bg-amber-500", label: "At risk" },
+  overdue: { badge: "bg-red-100 text-red-700", bar: "bg-red-500", label: "Overdue" },
+  achieved: { badge: "bg-indigo-100 text-indigo-800", bar: "bg-indigo-500", label: "Achieved" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -142,21 +142,21 @@ function EmptyChartState({ message }: { message: string }) {
 /* ── Main component ─────────────────────────────────────────────────────── */
 
 export default function EmissionsDashboard() {
-  const [data, setData]               = useState<DashboardData | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState("");
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
 
   // Filter state
-  const [deptId, setDeptId]     = useState<string>("");
+  const [deptId, setDeptId] = useState<string>("");
   const [dateFrom, setDateFrom] = useState<string>("");
-  const [dateTo, setDateTo]     = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
 
   /* Fetch department list for dropdown */
   useEffect(() => {
     api.get<Department[]>("/departments")
       .then((r) => setDepartments(r.data))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   /* Fetch dashboard data whenever any filter changes */
@@ -164,9 +164,9 @@ export default function EmissionsDashboard() {
     setLoading(true);
     setError("");
     const params: Record<string, string> = {};
-    if (deptId)   params.department_id = deptId;
-    if (dateFrom) params.date_from     = dateFrom;
-    if (dateTo)   params.date_to       = dateTo;
+    if (deptId) params.department_id = deptId;
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
 
     api
       .get<DashboardData>("/env/dashboard", { params })
@@ -178,11 +178,11 @@ export default function EmissionsDashboard() {
   useEffect(() => { load(); }, [load]);
 
   /* Derived counts */
-  const deptCount    = data?.department_breakdown.length ?? 0;
+  const deptCount = data?.department_breakdown.length ?? 0;
   const goalsOnTrack = data?.goals_progress.filter(
     (g) => g.status === "on_track" || g.status === "achieved"
   ).length ?? 0;
-  const goalsAtRisk  = data?.goals_progress.filter(
+  const goalsAtRisk = data?.goals_progress.filter(
     (g) => g.status === "at_risk" || g.status === "overdue"
   ).length ?? 0;
 

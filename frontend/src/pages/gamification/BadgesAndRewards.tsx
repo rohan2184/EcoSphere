@@ -37,11 +37,11 @@ interface Reward {
 export default function BadgesAndRewards() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  
+
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [myBadges, setMyBadges] = useState<UserBadge[]>([]);
   const [rewards, setRewards] = useState<Reward[]>([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState<number | null>(null);
 
@@ -54,7 +54,7 @@ export default function BadgesAndRewards() {
       ]);
       setAllBadges(badgesRes.data);
       setRewards(rewardsRes.data);
-      
+
       // If user is loaded, fetch their earned badges
       if (user) {
         const myBadgesRes = await api.get<UserBadge[]>(`/gamification/users/${user.id}/badges`);
@@ -76,9 +76,9 @@ export default function BadgesAndRewards() {
     try {
       await api.post(`/gamification/rewards/${reward.id}/redeem`);
       showToast(`Successfully redeemed ${reward.name} for ${reward.points_required} points!`, "green");
-      
+
       // Update local stock to avoid full refetch
-      setRewards((prev) => 
+      setRewards((prev) =>
         prev.map((r) => r.id === reward.id ? { ...r, stock: Math.max(0, r.stock - 1) } : r)
       );
     } catch (err) {
@@ -114,11 +114,10 @@ export default function BadgesAndRewards() {
               return (
                 <div
                   key={badge.id}
-                  className={`flex flex-col items-center justify-center p-6 rounded-xl border text-center transition-all ${
-                    earned
+                  className={`flex flex-col items-center justify-center p-6 rounded-xl border text-center transition-all ${earned
                       ? "border-emerald-200 bg-emerald-50 shadow-sm"
                       : "border-stone-200 bg-white opacity-60 grayscale hover:grayscale-0"
-                  }`}
+                    }`}
                 >
                   <div className="text-4xl mb-3">{badge.icon || "🎖"}</div>
                   <h3 className={`font-bold leading-tight ${earned ? "text-emerald-900" : "text-stone-700"}`}>
@@ -182,7 +181,7 @@ export default function BadgesAndRewards() {
                       {reward.stock > 0 ? `${reward.stock} left` : "Out of stock"}
                     </span>
                   </div>
-                  
+
                   <Button
                     variant="primary"
                     onClick={() => handleRedeem(reward)}
