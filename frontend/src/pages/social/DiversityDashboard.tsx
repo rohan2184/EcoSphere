@@ -48,7 +48,6 @@ interface Department {
 
 const GENDER_COLORS = ["#047857", "#0ea5e9"];
 const PIE_COLORS = ["#047857", "#f59e0b", "#dc2626"];
-const BAR_COLORS = ["#0369a1", "#047857", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
 
 export default function DiversityDashboard() {
   const [diversity, setDiversity] = useState<DiversityMetric[]>([]);
@@ -56,7 +55,6 @@ export default function DiversityDashboard() {
   const [social, setSocial] = useState<SocialReport | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
