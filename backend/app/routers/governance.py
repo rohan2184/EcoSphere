@@ -148,7 +148,6 @@ def delete_audit(audit_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
-# ---- Compliance Issues ----
 @router.get("/compliance-issues", response_model=list[ComplianceIssueOut])
 def list_compliance_issues(
     status: IssueStatus | None = None,

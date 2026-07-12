@@ -106,6 +106,7 @@ def patch_activity(
 
 # ── Employee Participation ───────────────────────────────────────────────────
 
+
 @router.post(
     "/participations",
     response_model=EmployeeParticipationOut,
@@ -123,6 +124,7 @@ def create_participation(
         csr_activity_id=data.csr_activity_id,
         proof_file=data.proof_file,
     )
+
 
 
 @router.patch(
