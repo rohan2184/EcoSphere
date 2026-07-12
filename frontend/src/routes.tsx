@@ -2,6 +2,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AUTH_ENFORCED, useAuth } from "./lib/auth";
 import Layout from "./components/Layout";
+import Landing from "./pages/Landing";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Dashboard from "./pages/dashboard/Dashboard";
@@ -17,6 +18,9 @@ import Leaderboard from "./pages/gamification/Leaderboard";
 import BadgesAndRewards from "./pages/gamification/BadgesAndRewards";
 import EmissionsDashboard from "./pages/env/EmissionsDashboard";
 import Goals from "./pages/env/Goals";
+import Settings from "./pages/settings/Settings";
+import ProductProfiles from "./pages/env/ProductProfiles";
+import DiversityDashboard from "./pages/social/DiversityDashboard";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { token } = useAuth();
@@ -27,17 +31,16 @@ function Protected({ children }: { children: React.ReactNode }) {
 export default function AppRoutes() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route
-        path="/"
         element={
           <Protected>
             <Layout />
           </Protected>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="governance/policies" element={<Policies />} />
         <Route path="governance/audits" element={<Audits />} />
@@ -49,12 +52,17 @@ export default function AppRoutes() {
         <Route path="env/emission-factors" element={<EmissionFactors />} />
         <Route path="env/carbon-transactions" element={<CarbonTransactions />} />
         <Route path="env/goals" element={<Goals />} />
+        <Route path="env/products" element={<ProductProfiles />} />
 
         {/* Person B: social + gamification routes here */}
         <Route path="social/csr-activities" element={<CSRActivityList />} />
+        <Route path="social/diversity" element={<DiversityDashboard />} />
         <Route path="gamification/challenges" element={<ChallengeList />} />
         <Route path="gamification/leaderboard" element={<Leaderboard />} />
         <Route path="gamification/badges-rewards" element={<BadgesAndRewards />} />
+
+        {/* Settings (admin/manager) */}
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   );

@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Bar, BarChart, CartesianGrid, Legend, PolarAngleAxis, RadialBar, RadialBarChart,
+  Bar, BarChart, CartesianGrid, Legend, Line, LineChart, PolarAngleAxis, RadialBar, RadialBarChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { api, errorMessage } from "../../lib/api";
 import StatCard from "../../components/StatCard";
 import ChartCard from "../../components/ChartCard";
 import DataTable from "../../components/DataTable";
-import { Chip } from "../../components/ui";
+import { Button, Chip } from "../../components/ui";
 
 interface DeptScore extends Record<string, unknown> {
   department_id: number;
@@ -30,14 +31,35 @@ interface Overview {
   recent_notifications: { id: number; type: string; title: string; is_read: boolean }[];
 }
 
+interface EnvDashboard {
+  total_co2e: number;
+  transaction_count: number;
+  by_department: { department: string; co2e: number }[];
+  by_source_type: { source_type: string; co2e: number }[];
+  monthly_trend: { month: string; co2e: number }[];
+}
+
+const NOTIFICATION_ICONS: Record<string, string> = {
+  compliance_overdue: "⚠️",
+  badge_awarded: "🎖️",
+  challenge_completed: "🏆",
+  policy_ack: "📋",
+  csr_activity: "♻️",
+};
+
 export default function Dashboard() {
   const [data, setData] = useState<Overview | null>(null);
+  const [envData, setEnvData] = useState<EnvDashboard | null>(null);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get<Overview>("/dashboard/overview")
       .then((r) => setData(r.data))
       .catch((e) => setError(errorMessage(e)));
+    api.get<EnvDashboard>("/env/dashboard")
+      .then((r) => setEnvData(r.data))
+      .catch(() => {}); // non-critical
   }, []);
 
   if (error) return <p className="text-red-600">Failed to load dashboard: {error}</p>;
@@ -52,6 +74,19 @@ export default function Dashboard() {
         <p className="text-sm text-stone-500">
           Live ESG scores · weights E/S/G = {data.weights.env}/{data.weights.social}/{data.weights.gov}
         </p>
+      </div>
+
+      {/* ⚡ Quick Actions */}
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={() => navigate("/env/carbon-transactions")}>
+          💨 Log Carbon Data
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/gamification/challenges")}>
+          🏆 Start Challenge
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/reports")}>
+          📊 View Reports
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -93,6 +128,21 @@ export default function Dashboard() {
         </ChartCard>
       </div>
 
+      {/* 📈 Emissions Trend (12 mo) */}
+      {envData && envData.monthly_trend.length > 0 && (
+        <ChartCard title="Emissions Trend (12 mo · kg CO₂e)">
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={envData.monthly_trend}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="month" fontSize={12} />
+              <YAxis fontSize={12} />
+              <Tooltip />
+              <Line type="monotone" dataKey="co2e" name="CO₂e" stroke="#047857" strokeWidth={2} dot isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      )}
+
       <ChartCard title="Department Ranking">
         <DataTable<DeptScore>
           columns={[
@@ -128,14 +178,18 @@ export default function Dashboard() {
           )}
         </ChartCard>
 
-        <ChartCard title="Recent Notifications">
+        {/* 🕒 Recent Activity (relabeled from Recent Notifications) */}
+        <ChartCard title="Recent Activity">
           {data.recent_notifications.length === 0 ? (
-            <p className="text-sm text-stone-400">No notifications.</p>
+            <p className="text-sm text-stone-400">No recent activity.</p>
           ) : (
             <ul className="space-y-2">
               {data.recent_notifications.map((n) => (
                 <li key={n.id} className="flex items-center gap-2 text-sm">
-                  {!n.is_read && <span className="h-2 w-2 rounded-full bg-emerald-600" />}
+                  <span className="w-5 text-center text-base">
+                    {NOTIFICATION_ICONS[n.type] ?? "📌"}
+                  </span>
+                  {!n.is_read && <span className="h-2 w-2 rounded-full bg-emerald-600 shrink-0" />}
                   <span className={n.is_read ? "text-stone-400" : ""}>{n.title}</span>
                 </li>
               ))}
