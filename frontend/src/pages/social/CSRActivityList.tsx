@@ -117,6 +117,17 @@ export default function CSRActivityList() {
 
   /* ── Approve / Reject (admin) ──────────────────────────────── */
 
+  async function handleDeleteActivity(activityId: number, title: string) {
+    if (!window.confirm(`Delete CSR activity "${title}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/social/csr-activities/${activityId}`);
+      showToast("CSR activity deleted successfully!", "green");
+      fetchActivities();
+    } catch (err) {
+      showToast(errorMessage(err), "red");
+    }
+  }
+
   async function handleDecision(participationId: number, decision: "approved" | "rejected") {
     try {
       await api.patch(`/social/participations/${participationId}/approve`, {
@@ -240,8 +251,15 @@ export default function CSRActivityList() {
                           </div>
                         ))
                       )}
-                    </div>
+                </div>
                   )}
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    onClick={() => handleDeleteActivity(act.id, act.title)}
+                  >
+                    Delete Activity
+                  </Button>
                 </div>
               )}
             </div>

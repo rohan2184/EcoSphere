@@ -99,6 +99,19 @@ export default function ChallengeList() {
     }
   }
 
+  /* ── Delete challenge (admin) ──────────────────────────────── */
+
+  async function handleDeleteChallenge(challengeId: number, title: string) {
+    if (!window.confirm(`Delete challenge "${title}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/gamification/challenges/${challengeId}`);
+      showToast("Challenge deleted successfully!", "green");
+      fetchChallenges();
+    } catch (err) {
+      showToast(errorMessage(err), "red");
+    }
+  }
+
   /* ── Fetch participations (admin) ──────────────────────────── */
 
   async function fetchParticipations(challengeId: number) {
@@ -292,8 +305,15 @@ export default function ChallengeList() {
                           </div>
                         ))
                       )}
-                    </div>
+                </div>
                   )}
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    onClick={() => handleDeleteChallenge(ch.id, ch.title)}
+                  >
+                    Delete Challenge
+                  </Button>
                 </div>
               )}
             </div>
