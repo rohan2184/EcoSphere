@@ -42,7 +42,6 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
         role=user.role.value, department_id=user.department_id,
     )
 
-
 @router.post("/login", response_model=TokenOut)
 def login(body: LoginIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email.strip().lower()).first()
