@@ -63,3 +63,49 @@ class TestApproveParticipation_EvidenceRules:
 
             assert result.approval_status.value == "rejected"
             assert result.points_earned == 0
+
+
+from app.schemas.social import DiversityMetricCreate, DiversityMetricUpdate
+from app.services.social import (
+    create_diversity_metric, list_diversity_metrics, update_diversity_metric
+)
+from app.models.core import Department
+
+class TestDiversityMetrics:
+    def test_create_and_duplicate_raises(self, db):
+        dept = Department(name="Test Dept", code="TEST01")
+        db.add(dept)
+        db.commit()
+        db.refresh(dept)
+        
+        data = DiversityMetricCreate(department_id=dept.id, period="2026-Q1", gender_ratio=45.0, avg_training_hours=12.5, training_completion_pct=90.0)
+        metric = create_diversity_metric(db, data)
+        assert metric.id is not None
+        assert metric.period == "2026-Q1"
+        
+        with pytest.raises(ValueError, match="already exists"):
+            create_diversity_metric(db, data)
+            
+    def test_update_and_list_filtering(self, db):
+        dept1 = Department(name="Dept A", code="DEPTA")
+        dept2 = Department(name="Dept B", code="DEPTB")
+        db.add_all([dept1, dept2])
+        db.commit()
+        db.refresh(dept1)
+        db.refresh(dept2)
+        
+        create_diversity_metric(db, DiversityMetricCreate(department_id=dept1.id, period="2026-Q1", gender_ratio=50.0))
+        m2 = create_diversity_metric(db, DiversityMetricCreate(department_id=dept2.id, period="2026-Q1", gender_ratio=60.0))
+        create_diversity_metric(db, DiversityMetricCreate(department_id=dept2.id, period="2026-Q2", gender_ratio=65.0))
+        
+        metrics = list_diversity_metrics(db, department_id=dept2.id)
+        assert len(metrics) == 2
+        
+        metrics = list_diversity_metrics(db, period="2026-Q1")
+        assert len(metrics) == 2
+        
+        metrics = list_diversity_metrics(db, department_id=dept2.id, period="2026-Q1")
+        assert len(metrics) == 1
+        
+        updated = update_diversity_metric(db, m2.id, DiversityMetricUpdate(gender_ratio=55.0))
+        assert updated.gender_ratio == 55.0

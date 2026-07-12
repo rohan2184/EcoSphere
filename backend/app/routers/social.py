@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db
+from app.core.deps import get_current_user, get_db, require_role
 from app.schemas.reports import SocialReportOut
 from app.services.reports import get_social_report
 from app.schemas.social import (
@@ -108,6 +108,24 @@ def patch_activity(
     return activity
 
 
+from app.services.social import delete_csr_activity
+
+@router.delete("/csr-activities/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_activity(
+    activity_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Delete a CSR activity (admin only)."""
+    _require_admin(current_user)
+    success = delete_csr_activity(db, activity_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CSR activity {activity_id} not found",
+        )
+    return None
+
 # ── Employee Participation ───────────────────────────────────────────────────
 
 
@@ -186,4 +204,74 @@ def social_report(
         date_to=date_to,
         employee_id=employee_id,
     )
+
+# ── Diversity Metrics ────────────────────────────────────────────────────────
+
+from app.schemas.social import DiversityMetricCreate, DiversityMetricUpdate, DiversityMetricOut, TrainingAggregateOut
+from app.services.social import (
+    create_diversity_metric, list_diversity_metrics, get_diversity_metric,
+    update_diversity_metric, delete_diversity_metric, get_training_aggregates
+)
+from app.models.auth import User
+
+@router.post("/diversity", response_model=DiversityMetricOut, status_code=status.HTTP_201_CREATED)
+def post_diversity_metric(
+    data: DiversityMetricCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager")),
+):
+    try:
+        return create_diversity_metric(db, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+@router.get("/diversity", response_model=list[DiversityMetricOut])
+def get_diversity_metrics(
+    department_id: Optional[int] = None,
+    period: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return list_diversity_metrics(db, department_id, period)
+
+@router.get("/diversity/{id}", response_model=DiversityMetricOut)
+def read_diversity_metric(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    metric = get_diversity_metric(db, id)
+    if not metric:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metric not found")
+    return metric
+
+@router.patch("/diversity/{id}", response_model=DiversityMetricOut)
+def patch_diversity_metric(
+    id: int,
+    data: DiversityMetricUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager")),
+):
+    metric = update_diversity_metric(db, id, data)
+    if not metric:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metric not found")
+    return metric
+
+@router.delete("/diversity/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_diversity_metric(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager")),
+):
+    success = delete_diversity_metric(db, id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metric not found")
+    return None
+
+@router.get("/training", response_model=TrainingAggregateOut)
+def get_training_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_training_aggregates(db)
 

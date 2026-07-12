@@ -59,6 +59,7 @@ class SettingsBase(BaseModel):
     weight_gov: int = 30
     notify_email: bool = True
     notify_inapp: bool = True
+    notification_prefs: dict = {}
 
 class SettingsUpdate(BaseModel):
     auto_emission_calc: Optional[bool] = None
@@ -69,6 +70,7 @@ class SettingsUpdate(BaseModel):
     weight_gov: Optional[int] = None
     notify_email: Optional[bool] = None
     notify_inapp: Optional[bool] = None
+    notification_prefs: Optional[dict] = None
 
 class SettingsOut(SettingsBase):
     id: int
@@ -80,3 +82,10 @@ class UserAdminUpdate(BaseModel):
     role: Optional[UserRole] = None
     department_id: Optional[int] = None
     is_active: Optional[bool] = None
+
+from app.schemas.auth import RegisterIn
+
+class UserCreate(RegisterIn):
+    role: Optional[UserRole] = UserRole.employee
+    department_id: Optional[int] = None
+

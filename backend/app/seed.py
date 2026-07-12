@@ -263,12 +263,16 @@ def seed() -> None:
             ))
         db.add_all(participations)
 
-        db.add_all([
-            DiversityMetric(department_id=d.id, period="2026-Q2",
-                            gender_ratio=42 + 3 * i, avg_training_hours=12 + i,
-                            training_completion_pct=70 + 5 * i)
-            for i, d in enumerate(departments)
-        ])
+        metrics = []
+        for period in ["2025-Q4", "2026-Q1", "2026-Q2"]:
+            for i, d in enumerate(departments):
+                metrics.append(DiversityMetric(
+                    department_id=d.id, period=period,
+                    gender_ratio=40 + 2 * i + (1 if period == "2026-Q2" else 0),
+                    avg_training_hours=10 + i + (2 if period == "2026-Q2" else 0),
+                    training_completion_pct=65 + 4 * i + (5 if period == "2026-Q2" else 0)
+                ))
+        db.add_all(metrics)
 
         # ── Gamification: challenges, participations, badges, rewards ──────
         challenges = [

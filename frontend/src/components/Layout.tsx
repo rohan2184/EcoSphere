@@ -12,6 +12,7 @@ const nav: NavItem[] = [
   { to: "/reports", label: "Reports", icon: "▤" },
   { to: "/social/csr-activities", label: "CSR Activities", icon: "♻" },
   { to: "/social/diversity", label: "Social Insights", icon: "👥" },
+  { to: "/social/diversity-metrics", label: "Diversity Metrics", icon: "📈", roles: ["admin"] },
   { to: "/gamification/challenges", label: "Challenges", icon: "🏆" },
   { to: "/gamification/leaderboard", label: "Leaderboard", icon: "📊" },
   { to: "/gamification/badges-rewards", label: "Badges & Rewards", icon: "🎖" },

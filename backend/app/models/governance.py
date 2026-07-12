@@ -33,6 +33,10 @@ class PolicyAcknowledgement(Base, TimestampMixin):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     acknowledged_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class AuditStatus(str, enum.Enum):
+    under_review = "under_review"
+    completed = "completed"
+
 class Audit(Base, TimestampMixin):
     __tablename__ = "audits"
 
@@ -42,6 +46,8 @@ class Audit(Base, TimestampMixin):
     date = Column(Date)
     scope = Column(String)
     result = Column(String)  # pass / fail / observations
+    status = Column(Enum(AuditStatus), default=AuditStatus.under_review, nullable=False)
+
 
 class ComplianceIssue(Base, TimestampMixin):
     __tablename__ = "compliance_issues"

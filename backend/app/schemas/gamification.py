@@ -95,6 +95,20 @@ class ChallengeParticipationOut(BaseModel):
 
 # ── Badge Schemas ────────────────────────────────────────────────────────────
 
+class BadgeCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    unlock_rule: dict
+    icon: Optional[str] = None
+
+
+class BadgeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    unlock_rule: Optional[dict] = None
+    icon: Optional[str] = None
+
+
 class BadgeOut(BaseModel):
     id: int
     name: str
@@ -118,6 +132,13 @@ class UserBadgeOut(BaseModel):
 
 
 # ── Reward Schemas ───────────────────────────────────────────────────────────
+
+class RewardUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    points_required: Optional[int] = None
+    stock: Optional[int] = None
+    status: Optional[str] = None
 
 class RewardOut(BaseModel):
     id: int

@@ -145,7 +145,7 @@ def to_pdf(columns: list[str], rows: list[dict[str, Any]], title: str = "Report"
     except ImportError:
         return to_csv(columns, rows)
 
-from app.models.social import CSRActivity, EmployeeParticipation, ApprovalStatus
+from app.models.social import CSRActivity, EmployeeParticipation, ApprovalStatus, DiversityMetric
 from app.models.gamification import (
     Challenge,
     ChallengeParticipation,
@@ -244,6 +244,33 @@ def get_social_report(
             }
         )
 
+    # 6. Diversity Summary
+    diversity_query = db.query(DiversityMetric)
+    if department_id is not None:
+        diversity_query = diversity_query.filter(DiversityMetric.department_id == department_id)
+    
+    all_metrics = diversity_query.order_by(DiversityMetric.period.desc()).all()
+    latest_by_dept = {}
+    for m in all_metrics:
+        if m.department_id not in latest_by_dept:
+            latest_by_dept[m.department_id] = m
+    
+    avg_training_completion = 0.0
+    avg_gender_ratio = 0.0
+    valid_training = [m.training_completion_pct for m in latest_by_dept.values() if m.training_completion_pct is not None]
+    valid_gender = [m.gender_ratio for m in latest_by_dept.values() if m.gender_ratio is not None]
+    
+    if valid_training:
+        avg_training_completion = sum(valid_training) / len(valid_training)
+    if valid_gender:
+        avg_gender_ratio = sum(valid_gender) / len(valid_gender)
+
+    diversity_summary = {
+        "departments_reported": len(latest_by_dept),
+        "average_training_completion_pct": avg_training_completion,
+        "average_gender_ratio": avg_gender_ratio,
+    }
+
     return {
         "total_csr_activities": total_csr_activities,
         "total_participations": total_participations,
@@ -253,6 +280,7 @@ def get_social_report(
         "total_points_awarded": total_points_awarded,
         "participation_rate": participation_rate,
         "activities": activity_breakdown,
+        "diversity_summary": diversity_summary,
     }
 
 
