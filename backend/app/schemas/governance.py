@@ -36,10 +36,6 @@ class PolicyOut(OrmBase):
     created_at: datetime | None
 
 
-class AcknowledgeIn(BaseModel):
-    # TODO(auth): derive from get_current_user once Person A lands JWT deps
-    user_id: int
-
 class AcknowledgementOut(OrmBase):
     id: int
     policy_id: int

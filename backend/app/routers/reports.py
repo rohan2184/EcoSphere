@@ -1,4 +1,3 @@
-# NOTE(auth): unprotected until Person A lands core/deps.py — add Depends(get_current_user) then.
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -6,10 +5,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.services import reports as report_service
 from app.services.reports import ReportFilters
 
-router = APIRouter(prefix="/reports", tags=["reports"])
+router = APIRouter(
+    prefix="/reports",
+    tags=["reports"],
+    dependencies=[Depends(get_current_user)],
+)
 
 MEDIA_TYPES = {
     "csv": "text/csv",

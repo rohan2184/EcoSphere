@@ -1,7 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import governance, dashboard, reports
+from app.routers import (
+    auth,
+    dashboard,
+    gamification,
+    governance,
+    notifications,
+    reports,
+    settings,
+    social,
+)
 
 app = FastAPI(title="EcoSphere API")
 
@@ -22,3 +31,8 @@ def health_check():
 app.include_router(governance.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(settings.router, prefix="/api")
+app.include_router(social.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
+app.include_router(gamification.router, prefix="/api")

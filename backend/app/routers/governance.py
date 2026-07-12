@@ -1,20 +1,26 @@
-# NOTE(auth): endpoints are unprotected until Person A lands core/deps.py
-# (get_current_user / require_role); add Depends there, not here per-route logic.
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.deps import get_current_user, require_role
 from app.models import User, ESGPolicy, PolicyAcknowledgement, Audit, ComplianceIssue
 from app.models.gamification import Notification
 from app.models.governance import IssueStatus
 from app.schemas.governance import (
-    PolicyCreate, PolicyUpdate, PolicyOut, AcknowledgeIn, AcknowledgementOut,
+    PolicyCreate, PolicyUpdate, PolicyOut, AcknowledgementOut,
     AuditCreate, AuditUpdate, AuditOut,
     ComplianceIssueCreate, ComplianceIssueUpdate, ComplianceIssueOut,
 )
 
-router = APIRouter(prefix="/governance", tags=["governance"])
+# All reads require login; mutations additionally require admin/manager below.
+router = APIRouter(
+    prefix="/governance",
+    tags=["governance"],
+    dependencies=[Depends(get_current_user)],
+)
+
+require_manager = require_role("admin", "manager")
 
 
 def get_or_404(db: Session, model, item_id: int):
@@ -58,7 +64,7 @@ def list_policies(status: str | None = None, db: Session = Depends(get_db)):
     return q.order_by(ESGPolicy.id).all()
 
 @router.post("/policies", response_model=PolicyOut, status_code=201)
-def create_policy(body: PolicyCreate, db: Session = Depends(get_db)):
+def create_policy(body: PolicyCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     policy = ESGPolicy(**body.model_dump())
     db.add(policy)
     db.commit()
@@ -70,7 +76,7 @@ def get_policy(policy_id: int, db: Session = Depends(get_db)):
     return get_or_404(db, ESGPolicy, policy_id)
 
 @router.put("/policies/{policy_id}", response_model=PolicyOut)
-def update_policy(policy_id: int, body: PolicyUpdate, db: Session = Depends(get_db)):
+def update_policy(policy_id: int, body: PolicyUpdate, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     policy = get_or_404(db, ESGPolicy, policy_id)
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(policy, k, v)
@@ -79,24 +85,24 @@ def update_policy(policy_id: int, body: PolicyUpdate, db: Session = Depends(get_
     return policy
 
 @router.delete("/policies/{policy_id}", status_code=204)
-def delete_policy(policy_id: int, db: Session = Depends(get_db)):
+def delete_policy(policy_id: int, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     policy = get_or_404(db, ESGPolicy, policy_id)
     db.query(PolicyAcknowledgement).filter(PolicyAcknowledgement.policy_id == policy_id).delete()
     db.delete(policy)
     db.commit()
 
 @router.post("/policies/{policy_id}/acknowledge", response_model=AcknowledgementOut, status_code=201)
-def acknowledge_policy(policy_id: int, body: AcknowledgeIn, db: Session = Depends(get_db)):
+def acknowledge_policy(policy_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     get_or_404(db, ESGPolicy, policy_id)
-    get_or_404(db, User, body.user_id)
+    user_id = current_user["id"]
     existing = (
         db.query(PolicyAcknowledgement)
-        .filter_by(policy_id=policy_id, user_id=body.user_id)
+        .filter_by(policy_id=policy_id, user_id=user_id)
         .first()
     )
     if existing:  # idempotent — acknowledging twice is a no-op
         return existing
-    ack = PolicyAcknowledgement(policy_id=policy_id, user_id=body.user_id)
+    ack = PolicyAcknowledgement(policy_id=policy_id, user_id=user_id)
     db.add(ack)
     db.commit()
     db.refresh(ack)
@@ -119,7 +125,7 @@ def list_audits(department_id: int | None = None, result: str | None = None, db:
     return q.order_by(Audit.id).all()
 
 @router.post("/audits", response_model=AuditOut, status_code=201)
-def create_audit(body: AuditCreate, db: Session = Depends(get_db)):
+def create_audit(body: AuditCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     audit = Audit(**body.model_dump())
     db.add(audit)
     db.commit()
@@ -131,7 +137,7 @@ def get_audit(audit_id: int, db: Session = Depends(get_db)):
     return get_or_404(db, Audit, audit_id)
 
 @router.put("/audits/{audit_id}", response_model=AuditOut)
-def update_audit(audit_id: int, body: AuditUpdate, db: Session = Depends(get_db)):
+def update_audit(audit_id: int, body: AuditUpdate, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     audit = get_or_404(db, Audit, audit_id)
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(audit, k, v)
@@ -140,7 +146,7 @@ def update_audit(audit_id: int, body: AuditUpdate, db: Session = Depends(get_db)
     return audit
 
 @router.delete("/audits/{audit_id}", status_code=204)
-def delete_audit(audit_id: int, db: Session = Depends(get_db)):
+def delete_audit(audit_id: int, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     audit = get_or_404(db, Audit, audit_id)
     if db.query(ComplianceIssue).filter(ComplianceIssue.audit_id == audit_id).count():
         raise HTTPException(400, "Audit has compliance issues; resolve/delete them first")
@@ -170,7 +176,7 @@ def list_compliance_issues(
     return issues
 
 @router.post("/compliance-issues", response_model=ComplianceIssueOut, status_code=201)
-def create_compliance_issue(body: ComplianceIssueCreate, db: Session = Depends(get_db)):
+def create_compliance_issue(body: ComplianceIssueCreate, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     get_or_404(db, Audit, body.audit_id)
     get_or_404(db, User, body.owner_id)
     issue = ComplianceIssue(**body.model_dump())
@@ -184,7 +190,7 @@ def get_compliance_issue(issue_id: int, db: Session = Depends(get_db)):
     return get_or_404(db, ComplianceIssue, issue_id)
 
 @router.put("/compliance-issues/{issue_id}", response_model=ComplianceIssueOut)
-def update_compliance_issue(issue_id: int, body: ComplianceIssueUpdate, db: Session = Depends(get_db)):
+def update_compliance_issue(issue_id: int, body: ComplianceIssueUpdate, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     issue = get_or_404(db, ComplianceIssue, issue_id)
     data = body.model_dump(exclude_unset=True)
     if "owner_id" in data:
@@ -196,7 +202,7 @@ def update_compliance_issue(issue_id: int, body: ComplianceIssueUpdate, db: Sess
     return issue
 
 @router.delete("/compliance-issues/{issue_id}", status_code=204)
-def delete_compliance_issue(issue_id: int, db: Session = Depends(get_db)):
+def delete_compliance_issue(issue_id: int, db: Session = Depends(get_db), current_user: dict = Depends(require_manager)):
     issue = get_or_404(db, ComplianceIssue, issue_id)
     db.delete(issue)
     db.commit()
