@@ -1,0 +1,4 @@
+# Normalize line endings across macOS/Windows contributors
+* text=auto
+*.png binary
+*.pdf binary
