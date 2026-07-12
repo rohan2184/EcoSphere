@@ -94,7 +94,7 @@ def delete_policy(policy_id: int, db: Session = Depends(get_db), current_user: d
 @router.post("/policies/{policy_id}/acknowledge", response_model=AcknowledgementOut, status_code=201)
 def acknowledge_policy(policy_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     get_or_404(db, ESGPolicy, policy_id)
-    user_id = current_user["id"]
+    user_id = current_user.id
     existing = (
         db.query(PolicyAcknowledgement)
         .filter_by(policy_id=policy_id, user_id=user_id)

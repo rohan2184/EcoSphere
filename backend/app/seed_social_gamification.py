@@ -13,7 +13,7 @@ from app.models.core import Category
 from app.models.social import CSRActivity, EmployeeParticipation, ApprovalStatus
 from app.models.gamification import Challenge, ChallengeParticipation, Badge, Reward, ChallengeStatus
 from app.services.badges import check_badge_unlocks
-from app.core.deps import get_settings_stub
+from app.models.core import Settings
 
 try:
     from app.models.auth import User
@@ -218,7 +218,7 @@ def seed_social_and_gamification(db: Session):
         db.flush()
 
         # Trigger badge unlocks for seeded users
-        settings = get_settings_stub()
+        settings = (db.query(Settings).first() or Settings())
         # Force auto-award on for seed script
         settings.badge_auto_award = True 
         for uid in user_ids:

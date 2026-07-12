@@ -13,9 +13,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, get_settings_stub
+from app.core.deps import get_current_user, get_db
 from app.schemas.reports import GamificationReportOut
 from app.services.reports import get_gamification_report
+from app.models.core import Settings
 from app.models.auth import User
 from app.models.gamification import Badge, UserBadge
 from app.schemas.gamification import (
@@ -164,7 +165,7 @@ def create_participation(
     try:
         return submit_challenge_participation(
             db,
-            user_id=current_user["id"],
+            user_id=current_user.id,
             challenge_id=data.challenge_id,
             progress=data.progress,
         )
@@ -193,7 +194,7 @@ def update_my_participation(
         return update_participation_progress(
             db,
             participation_id=participation_id,
-            user_id=current_user["id"],
+            user_id=current_user.id,
             progress=data.progress,
             proof_file=data.proof_file,
         )
@@ -229,7 +230,7 @@ def approve_or_reject_participation(
     Returns 404 if the participation does not exist.
     """
     _require_admin(current_user)
-    settings = get_settings_stub()
+    settings = (db.query(Settings).first() or Settings())
     try:
         return approve_challenge_participation(
             db,
@@ -316,7 +317,7 @@ def redeem_a_reward(
 ):
     """Redeem a reward using the current user's points balance."""
     try:
-        return redeem_reward(db, user_id=current_user["id"], reward_id=reward_id)
+        return redeem_reward(db, user_id=current_user.id, reward_id=reward_id)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
